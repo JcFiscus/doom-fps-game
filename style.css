@@ -1,1 +1,82 @@
-
+/* CSS styles */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            height: 100%;
+            width: 100%;
+        }
+        #gameCanvas {
+            display: none; /* Hidden initially, shown when game starts */
+            background: #000;
+        }
+        #mainMenu, #roundInfo, #pauseMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #fff;
+            z-index: 3;
+        }
+        #roundInfo, #pauseMenu {
+            display: none;
+            pointer-events: none; /* Initially non-interactive */
+        }
+        #mainMenu button, #startButton, #restartButton, #viewHighScores, #settingsButton, #backFromHighScores, #backFromSettings, #resumeButton, #quitButton {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #highScoresContainer, #settingsContainer {
+            background: rgba(0,0,0,0.9);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        #hud span {
+            color: #f00;
+        }
+        #hud canvas {
+            border: 2px solid #fff;
+            background: #222;
+        }
+        /* Crosshair styling */
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 4;
+        }
+        /* Pause Menu Styles */
+        #pauseMenu button {
+            width: 150px;
+        }
