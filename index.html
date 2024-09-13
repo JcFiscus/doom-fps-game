@@ -9,17 +9,41 @@
 <body>
     <!-- Main Menu -->
     <div id="mainMenu">
-        <!-- ... (copy all your HTML content here) ... -->
+        <h1>Simple DOOM-Inspired Game</h1>
+        <button id="startButton">Start Game</button>
+        <button id="viewHighScores">High Scores</button>
+        <button id="settingsButton">Settings</button>
+        <!-- High Scores Container -->
+        <div id="highScoresContainer">
+            <h2>High Scores</h2>
+            <ol id="highScoresList">
+                <!-- High scores will be populated here -->
+            </ol>
+            <button id="backFromHighScores">Back</button>
+        </div>
+        <!-- Settings Container -->
+        <div id="settingsContainer">
+            <h2>Settings</h2>
+            <label for="mouseSensitivity">Mouse Sensitivity:</label>
+            <input type="range" id="mouseSensitivity" min="0.001" max="0.01" step="0.001" value="0.002">
+            <span id="mouseSensitivityValue">0.002</span>
+            <br>
+            <button id="backFromSettings">Back</button>
+        </div>
     </div>
 
     <!-- Round Information -->
     <div id="roundInfo">
-        <!-- ... -->
+        <div id="roundMessage"></div>
+        <div id="countdown"></div>
+        <button id="restartButton" style="display: none;">Restart Game</button>
     </div>
 
     <!-- Pause Menu -->
     <div id="pauseMenu">
-        <!-- ... -->
+        <h2>Game Paused</h2>
+        <button id="resumeButton">Resume Game</button>
+        <button id="quitButton">Quit to Menu</button>
     </div>
 
     <!-- Game Canvas -->
@@ -27,7 +51,12 @@
 
     <!-- HUD -->
     <div id="hud">
-        <!-- ... -->
+        Health: <span id="playerHealth">100</span> |
+        Round: <span id="currentRound">1</span> |
+        Multiplier: <span id="multiplier">1.0</span> |
+        Ammo: <span id="playerAmmo">∞</span> |
+        Weapon: <span id="currentWeapon">Pistol</span>
+        <canvas id="miniMap" width="150" height="150"></canvas>
     </div>
 
     <!-- Crosshair -->
@@ -38,7 +67,30 @@
         <source src="audio/background.mp3" type="audio/mpeg">
         Your browser does not support the audio element.
     </audio>
-    <!-- ... (include all audio elements) ... -->
+    <audio id="shootSound">
+        <source src="audio/shoot.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="hitSound">
+        <source src="audio/hit.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="killSound">
+        <source src="audio/kill.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="reloadSound">
+        <source src="audio/reload.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="noAmmoSound">
+        <source src="audio/noammo.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="collectSound">
+        <source src="audio/collect.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
 
     <!-- Link to External JavaScript -->
     <script src="script.js"></script>
