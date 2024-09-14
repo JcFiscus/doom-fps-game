@@ -49,7 +49,7 @@ const collectSound = document.getElementById('collectSound');
 
 // Set default mouse sensitivity
 mouseSensitivityInput.value = '10'; // Adjust as needed
-mouseSensitivityValue.textContent = '1';
+mouseSensitivityValue.textContent = '10';
 
 // Player Rotation Speed
 let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 10;
