@@ -1,5 +1,3 @@
-/* script.js */
-
 /* === Global Variables and Constants === */
 
 // Canvas and Context
@@ -143,7 +141,6 @@ class Enemy {
         this.distance = 0;
         this.isHit = false;
         this.hitTime = 0;
-        this.hitThisShot = false;
     }
 
     moveTowards(player, deltaTime) {
@@ -175,11 +172,10 @@ class Enemy {
     }
 }
 
-class HealthPack {
-    constructor(x, y, healingAmount) {
+class Collectible {
+    constructor(x, y) {
         this.x = x + 0.5;
         this.y = y + 0.5;
-        this.healingAmount = healingAmount;
         this.collected = false;
     }
 
@@ -188,49 +184,56 @@ class HealthPack {
         let dy = this.y - player.y;
         let dist = Math.hypot(dx, dy);
         if (dist < 0.5) {
-            player.heal(this.healingAmount);
+            this.onCollect(player);
             this.collected = true;
             playCollectSound();
-
-            // Update HUD if needed
             updateHUD();
         }
     }
 
     render(ctx) {
         if (!this.collected) {
-            ctx.fillStyle = 'green';
-            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render health pack
+            ctx.fillStyle = this.getColor();
+            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render collectible
         }
+    }
+
+    getColor() {
+        return 'white';
+    }
+
+    onCollect(player) {
+        // To be overridden by subclasses
     }
 }
 
-class AmmoPack {
+class HealthPack extends Collectible {
+    constructor(x, y, healingAmount) {
+        super(x, y);
+        this.healingAmount = healingAmount;
+    }
+
+    getColor() {
+        return 'green';
+    }
+
+    onCollect(player) {
+        player.heal(this.healingAmount);
+    }
+}
+
+class AmmoPack extends Collectible {
     constructor(x, y, ammoAmount) {
-        this.x = x + 0.5;
-        this.y = y + 0.5;
+        super(x, y);
         this.ammoAmount = ammoAmount;
-        this.collected = false;
     }
 
-    checkCollection(player) {
-        let dx = this.x - player.x;
-        let dy = this.y - player.y;
-        let dist = Math.hypot(dx, dy);
-        if (dist < 0.5) {
-            weapons[currentWeapon].ammo = Math.min(weapons[currentWeapon].maxAmmo, weapons[currentWeapon].ammo + this.ammoAmount);
-            this.collected = true;
-            playCollectSound();
-
-            updateHUD(); // Update HUD immediately
-        }
+    getColor() {
+        return 'blue';
     }
 
-    render(ctx) {
-        if (!this.collected) {
-            ctx.fillStyle = 'blue';
-            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render ammo pack
-        }
+    onCollect(player) {
+        weapons[currentWeapon].ammo = Math.min(weapons[currentWeapon].maxAmmo, weapons[currentWeapon].ammo + this.ammoAmount);
     }
 }
 
@@ -256,8 +259,6 @@ let fireRate = weapons[currentWeapon].fireRate;
 let fireTimeout;
 let lastFrameTime = null;
 let playerRotationSpeed;
-let mouseSensitivityInput;
-let mouseSensitivityValue;
 
 /* === Map Configuration === */
 
@@ -376,6 +377,9 @@ backFromSettingsButton.addEventListener('click', () => {
 mouseSensitivityInput.value = '1'; // Adjust as needed
 mouseSensitivityValue.textContent = mouseSensitivityInput.value;
 
+// Initialize player rotation speed
+playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
     playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
@@ -384,14 +388,9 @@ mouseSensitivityInput.addEventListener('input', () => {
 document.addEventListener('keydown', (e) => {
     keys[e.key.toLowerCase()] = true;
 
-    if (e.key === '1') {
-        currentWeapon = 'pistol';
-        updateHUD();
-    } else if (e.key === '2') {
-        currentWeapon = 'shotgun';
-        updateHUD();
-    } else if (e.key === '3') {
-        currentWeapon = 'rifle';
+    const weaponKeys = { '1': 'pistol', '2': 'shotgun', '3': 'rifle' };
+    if (weaponKeys[e.key]) {
+        currentWeapon = weaponKeys[e.key];
         updateHUD();
     }
 
@@ -420,13 +419,10 @@ document.addEventListener('pointerlockchange', () => {
 // Mouse Move Handler
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        // Debug: Log movementX for verification
-        console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
-
         // Adjust the scaling factor as needed for desired sensitivity
         const baseSensitivity = 0.005; // You can start with 0.005 and adjust as needed
         const sensitivityFactor = baseSensitivity * playerRotationSpeed; // Sensitivity scales with playerRotationSpeed
-        player.dir += e.movementX * playerRotationSpeed * sensitivityFactor;
+        player.dir += e.movementX * sensitivityFactor;
 
         // Keep player.dir within 0 to 2*PI
         if (player.dir < 0) player.dir += 2 * Math.PI;
@@ -522,22 +518,15 @@ function update(deltaTime) {
         showRoundInfo(`Round ${currentRound}`, false);
     }
 
-    // Health Packs Collection
-    healthPacksArray.forEach(pack => {
+    // Collectibles Collection
+    [...healthPacksArray, ...ammoPacksArray].forEach(pack => {
         if (!pack.collected) {
             pack.checkCollection(player);
         }
     });
 
+    // Remove collected items
     healthPacksArray = healthPacksArray.filter(pack => !pack.collected);
-
-    // Ammo Packs Collection
-    ammoPacksArray.forEach(pack => {
-        if (!pack.collected) {
-            pack.checkCollection(player);
-        }
-    });
-
     ammoPacksArray = ammoPacksArray.filter(pack => !pack.collected);
 
     // Periodically Drop Supplies
@@ -641,8 +630,8 @@ function render() {
                         ctx.fillRect(screenX + entitySize / 4, entityY - 10, entitySize / 2, 5);
                         ctx.fillStyle = 'green';
                         ctx.fillRect(screenX + entitySize / 4, entityY - 10, (entity.health / getEnemyHealth(currentRound)) * (entitySize / 2), 5);
-                    } else if (entity instanceof HealthPack || entity instanceof AmmoPack) {
-                        ctx.fillStyle = entity instanceof HealthPack ? 'green' : 'blue';
+                    } else if (entity instanceof Collectible) {
+                        ctx.fillStyle = entity.getColor();
                         ctx.fillRect(screenX, entityY, entitySize, entitySize);
                     }
                 }
@@ -722,86 +711,40 @@ function shoot() {
     shootSound.currentTime = 0;
     shootSound.play();
 
+    let weapon = weapons[currentWeapon];
+    let damage = weapon.damage * player.damageMultiplier;
+
+    switch (currentWeapon) {
+        case 'pistol':
+            fireRay(1, 0, 16, damage);
+            break;
+        case 'shotgun':
+            fireRay(SHOTGUN_PELLETS, SHOTGUN_SPREAD, SHOTGUN_RANGE, damage);
+            break;
+        case 'rifle':
+            fireRay(1, 0, 16, damage, true);
+            break;
+        default:
+            break;
+    }
+}
+
+function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
     let hit = false;
 
-    // Determine damage based on weapon
-    let damage = weapons[currentWeapon].damage * player.damageMultiplier;
-
-    if (currentWeapon === 'shotgun') {
-        // Shotgun logic with pellet spread
-        for (let i = 0; i < SHOTGUN_PELLETS; i++) {
-            let spreadAngle = player.dir + (Math.random() - 0.5) * SHOTGUN_SPREAD;
-            let eyeX = Math.cos(spreadAngle);
-            let eyeY = Math.sin(spreadAngle);
-
-            let distanceToWall = 0;
-            let maxDistance = SHOTGUN_RANGE;
-
-            let pelletHit = false;
-
-            while (distanceToWall < maxDistance) {
-                distanceToWall += 0.1;
-                let testX = player.x + eyeX * distanceToWall;
-                let testY = player.y + eyeY * distanceToWall;
-
-                if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
-                    break;
-                }
-
-                for (let enemy of enemies) {
-                    let dx = enemy.x - testX;
-                    let dy = enemy.y - testY;
-                    let dist = Math.hypot(dx, dy);
-                    if (dist < 0.3) {
-                        enemy.health -= damage;
-                        pelletHit = true;
-                        hit = true;
-
-                        enemy.isHit = true;
-                        enemy.hitTime = performance.now();
-
-                        if (enemy.health <= 0) {
-                            totalKills++;
-                            score += Math.floor(100 * player.damageMultiplier);
-                            enemies.splice(enemies.indexOf(enemy), 1);
-                            playKillSound();
-                            player.damageMultiplier += 0.1;
-                            updateHUD();
-                        } else {
-                            playHitSound();
-                        }
-                        break;
-                    }
-                }
-
-                if (pelletHit) {
-                    break;
-                }
-            }
-        }
-
-        if (hit) {
-            shotsHit++;
+    for (let i = 0; i < numRays; i++) {
+        let rayDir;
+        if (spreadAngle === 0) {
+            rayDir = player.dir;
         } else {
-            // Missed shot logic
-            player.damageMultiplier = 1.0;
-            fireRate = weapons[currentWeapon].fireRate;
-            updateHUD();
-            playMissSound();
+            rayDir = player.dir + (Math.random() - 0.5) * spreadAngle;
         }
-    } else {
-        // For pistol and rifle, align the bullet with the crosshair
-
-        // Calculate the ray angle aligned with the crosshair
-        let cameraX = 0; // Center of the screen
-        let rayAngle = player.dir + Math.atan(cameraX * Math.tan(fov / 2));
-        let eyeX = Math.cos(rayAngle);
-        let eyeY = Math.sin(rayAngle);
-
-        let maxDistance = currentWeapon === 'rifle' ? 16 : 16;
+        let eyeX = Math.cos(rayDir);
+        let eyeY = Math.sin(rayDir);
 
         let shotHitX = null;
         let shotHitY = null;
+        let enemiesHitThisShot = new Set();
 
         for (let distanceToWall = 0; distanceToWall < maxDistance; distanceToWall += 0.05) {
             let testX = player.x + eyeX * distanceToWall;
@@ -817,7 +760,7 @@ function shoot() {
                 let dx = enemy.x - testX;
                 let dy = enemy.y - testY;
                 let dist = Math.hypot(dx, dy);
-                if (dist < 0.3 && (!enemy.hitThisShot || currentWeapon !== 'rifle')) {
+                if (dist < 0.3 && !enemiesHitThisShot.has(enemy)) {
                     enemy.health -= damage;
                     hit = true;
                     shotHitX = testX;
@@ -826,12 +769,7 @@ function shoot() {
                     enemy.isHit = true;
                     enemy.hitTime = performance.now();
 
-                    if (currentWeapon === 'rifle') {
-                        enemy.hitThisShot = true;
-                    } else {
-                        // For pistol, break after first hit
-                        break;
-                    }
+                    enemiesHitThisShot.add(enemy);
 
                     if (enemy.health <= 0) {
                         totalKills++;
@@ -843,48 +781,45 @@ function shoot() {
                     } else {
                         playHitSound();
                     }
-                    break;
+
+                    if (!penetrate) {
+                        break;
+                    }
                 }
             }
 
-            if (currentWeapon !== 'rifle' && hit) {
-                break; // Stop the ray if we've hit an enemy with pistol
+            if (!penetrate && hit) {
+                break;
             }
         }
 
-        if (currentWeapon === 'rifle') {
-            enemies.forEach(enemy => {
-                enemy.hitThisShot = false;
-            });
-        }
-
         // Store the shot data for rendering the bullet trace
-        if (shotHitX !== null && shotHitY !== null) {
+        if (shotHitX !== null && shotHitY !== null && i === 0) {
             lastShot = {
                 x: shotHitX,
                 y: shotHitY,
                 time: performance.now()
             };
         }
+    }
 
-        if (hit) {
-            shotsHit++;
-        } else {
-            // Missed shot logic
-            player.damageMultiplier = 1.0;
-            fireRate = weapons[currentWeapon].fireRate;
-            updateHUD();
-            playMissSound();
-        }
+    if (hit) {
+        shotsHit++;
+    } else {
+        // Missed shot logic
+        player.damageMultiplier = 1.0;
+        fireRate = weapons[currentWeapon].fireRate;
+        updateHUD();
+        playMissSound();
+    }
 
-        // Accelerate fire rate if hit with pistol
-        if (currentWeapon === 'pistol' && hit) {
-            player.damageMultiplier += 0.1;
-            fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
-            updateHUD();
-        } else if (currentWeapon === 'pistol' && !hit) {
-            fireRate = defaultFireRate; // Reset fire rate on miss
-        }
+    // Weapon-specific logic
+    if (currentWeapon === 'pistol' && hit) {
+        player.damageMultiplier += 0.1;
+        fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
+        updateHUD();
+    } else if (currentWeapon === 'pistol' && !hit) {
+        fireRate = defaultFireRate; // Reset fire rate on miss
     }
 }
 
@@ -1058,18 +993,10 @@ function drawMiniMap() {
         }
     }
 
-    // Draw health packs
-    healthPacksArray.forEach(pack => {
+    // Draw collectibles
+    [...healthPacksArray, ...ammoPacksArray].forEach(pack => {
         if (!pack.collected) {
-            miniMapCtx.fillStyle = 'green';
-            miniMapCtx.fillRect(pack.x * scale - 5, pack.y * scale - 5, 10, 10);
-        }
-    });
-
-    // Draw ammo packs
-    ammoPacksArray.forEach(pack => {
-        if (!pack.collected) {
-            miniMapCtx.fillStyle = 'blue';
+            miniMapCtx.fillStyle = pack instanceof HealthPack ? 'green' : 'blue';
             miniMapCtx.fillRect(pack.x * scale - 5, pack.y * scale - 5, 10, 10);
         }
     });
@@ -1132,26 +1059,19 @@ function displayHighScoresOnStart() {
     displayHighScores();
 }
 
-
-
 window.onload = () => {
     displayHighScoresOnStart();
-    // Now that the DOM is fully loaded, you can safely access DOM elements
-    const mouseSensitivityInput = document.getElementById('mouseSensitivity');
-    const mouseSensitivityValue = document.getElementById('mouseSensitivityValue');
-
     // Set default mouse sensitivity
     mouseSensitivityInput.value = '1'; // Adjust as needed
     mouseSensitivityValue.textContent = '1';
 
     // Initialize player rotation speed
     playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
-    
+
     // Add the event listener for mouse sensitivity input
     mouseSensitivityInput.addEventListener('input', () => {
         mouseSensitivityValue.textContent = mouseSensitivityInput.value;
         playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
-        console.log('mouseSensitivityInput:', mouseSensitivityInput);
     });
 };
 
