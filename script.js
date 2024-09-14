@@ -28,6 +28,9 @@ const quitButton = document.getElementById('quitButton');
 const miniMap = document.getElementById('miniMap');
 const miniMapCtx = miniMap.getContext('2d');
 const crosshair = document.querySelector('.crosshair');
+const SHOTGUN_PELLETS = 7; // Number of pellets
+const SHOTGUN_SPREAD = Math.PI / 12; // Spread angle (15 degrees)
+const SHOTGUN_RANGE = 8; // Limited range
 
 // Audio elements
 const backgroundMusic = document.getElementById('backgroundMusic');
@@ -123,12 +126,13 @@ this.currentWeapon = 'pistol';
 
 class Enemy {
 constructor(x, y, health) {
-this.x = x + 0.5;
-this.y = y + 0.5;
-this.health = health;
-this.lastAttackTime = 0;
-this.distance = 0;
-}
+        this.x = x + 0.5;
+        this.y = y + 0.5;
+        this.health = health;
+        this.lastAttackTime = 0;
+        this.distance = 0;
+        this.hitThisShot = false;
+    }
 
 moveTowards(player, deltaTime) {
 let dx = player.x - this.x;
@@ -803,88 +807,212 @@ currentWeaponSpan.textContent = weapons[currentWeapon].name;
 
 // Shoot function
 function shoot() {
-shotsFired++; // Increment shots fired
+    shotsFired++; // Increment shots fired
 
-// Check ammo
-if (weapons[currentWeapon].ammo <= 0) {
-// No ammo, cannot shoot
-playNoAmmoSound();
-return;
-}
+    // Check ammo
+    if (weapons[currentWeapon].ammo <= 0) {
+        // No ammo, cannot shoot
+        playNoAmmoSound();
+        return;
+    }
 
-// Decrement ammo if not infinite
-if (weapons[currentWeapon].ammo !== Infinity) {
-weapons[currentWeapon].ammo--;
-updateHUD();
-}
+    // Decrement ammo if not infinite
+    if (weapons[currentWeapon].ammo !== Infinity) {
+        weapons[currentWeapon].ammo--;
+        updateHUD();
+    }
 
-// Play shooting sound
-shootSound.currentTime = 0;
-shootSound.play();
+    // Play shooting sound
+    shootSound.currentTime = 0;
+    shootSound.play();
 
-let hit = false;
-let rayAngle = player.dir;
-let eyeX = Math.cos(rayAngle);
-let eyeY = Math.sin(rayAngle);
-let maxDistance = 16; // Maximum shooting distance
+    let hit = false;
 
-// Determine damage based on weapon
-let damage = weapons[currentWeapon].damage * player.damageMultiplier;
+    // Determine damage based on weapon
+    let damage = weapons[currentWeapon].damage * player.damageMultiplier;
 
-// Loop until we hit a wall or reach max distance
-for (let distanceToWall = 0; distanceToWall < maxDistance; distanceToWall += 0.05) {
-let testX = player.x + eyeX * distanceToWall;
-let testY = player.y + eyeY * distanceToWall;
+    if (currentWeapon === 'shotgun') {
+        // Shotgun logic
+        for (let i = 0; i < SHOTGUN_PELLETS; i++) {
+            // Calculate random spread angle
+            let spreadAngle = player.dir + (Math.random() - 0.5) * SHOTGUN_SPREAD;
+            let eyeX = Math.cos(spreadAngle);
+            let eyeY = Math.sin(spreadAngle);
 
-if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
-    // Hit a wall, stop the ray
-    break;
-}
+            let distanceToWall = 0;
+            let maxDistance = SHOTGUN_RANGE;
 
-// Check for enemies along the ray
-for (let enemy of enemies) {
-    let dx = enemy.x - testX;
-    let dy = enemy.y - testY;
-    let dist = Math.hypot(dx, dy);
-    if (dist < 0.3) { // Hit threshold
-        // Enemy hit
-        enemy.health -= damage;
-        hit = true;
-        if (enemy.health <= 0) {
-            // Enemy killed
-            enemies.splice(enemies.indexOf(enemy), 1);
-            playKillSound(); // Play kill sound
-            // Increase multiplier by 0.1 per kill
-            player.damageMultiplier += 0.1;
-            totalKills++; // Increment kill count
-            // Increase score
-            score += Math.floor(100 * player.damageMultiplier);
-            updateHUD();
-        } else {
-            playHitSound(); // Play hit sound for damage
+            let pelletHit = false;
+
+            // Loop until we hit a wall or reach max distance
+            while (distanceToWall < maxDistance) {
+                distanceToWall += 0.1;
+                let testX = player.x + eyeX * distanceToWall;
+                let testY = player.y + eyeY * distanceToWall;
+
+                if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
+                    // Hit a wall, stop the ray
+                    break;
+                }
+
+                // Check for enemies along the ray
+                for (let enemy of enemies) {
+                    let dx = enemy.x - testX;
+                    let dy = enemy.y - testY;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < 0.3) { // Hit threshold
+                        // Enemy hit
+                        enemy.health -= damage;
+                        pelletHit = true;
+                        hit = true;
+                        if (enemy.health <= 0) {
+                            // Enemy killed
+                            enemies.splice(enemies.indexOf(enemy), 1);
+                            playKillSound(); // Play kill sound
+                            // Increase multiplier by 0.1 per kill
+                            player.damageMultiplier += 0.1;
+                            totalKills++; // Increment kill count
+                            // Increase score
+                            score += Math.floor(100 * player.damageMultiplier);
+                            updateHUD();
+                        } else {
+                            playHitSound(); // Play hit sound for damage
+                        }
+                        shotsHit++; // Increment shots hit
+                        break; // Each pellet can hit an enemy only once
+                    }
+                }
+
+                if (pelletHit) {
+                    break; // Move to next pellet
+                }
+            }
         }
-        shotsHit++; // Increment shots hit
 
-        // Increase rate of fire based on weapon
-        fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
+        if (!hit) {
+            // Missed shot
+            player.damageMultiplier = 1.0;
+            fireRate = weapons[currentWeapon].fireRate; // Reset fire rate based on weapon
+            updateHUD();
+            playMissSound();
+        }
+    } else if (currentWeapon === 'rifle') {
+        // Rifle logic
+        let rayAngle = player.dir;
+        let eyeX = Math.cos(rayAngle);
+        let eyeY = Math.sin(rayAngle);
+        let maxDistance = 16; // Unlimited range (max map size)
 
-        break; // Stop checking other enemies
+        // Loop until we hit a wall
+        for (let distanceToWall = 0; distanceToWall < maxDistance; distanceToWall += 0.05) {
+            let testX = player.x + eyeX * distanceToWall;
+            let testY = player.y + eyeY * distanceToWall;
+
+            if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
+                // Hit a wall, stop the ray
+                break;
+            }
+
+            // Check for enemies along the ray
+            for (let enemy of enemies) {
+                let dx = enemy.x - testX;
+                let dy = enemy.y - testY;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 0.3 && !enemy.hitThisShot) { // Hit threshold
+                    // Enemy hit
+                    enemy.health -= damage;
+                    enemy.hitThisShot = true; // Prevent multiple hits in the same shot
+                    hit = true;
+                    if (enemy.health <= 0) {
+                        // Enemy killed
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        playKillSound(); // Play kill sound
+                        // Increase multiplier by 0.1 per kill
+                        player.damageMultiplier += 0.1;
+                        totalKills++; // Increment kill count
+                        // Increase score
+                        score += Math.floor(100 * player.damageMultiplier);
+                        updateHUD();
+                    } else {
+                        playHitSound(); // Play hit sound for damage
+                    }
+                    shotsHit++; // Increment shots hit
+                    // Continue the ray to hit other enemies
+                }
+            }
+        }
+
+        // Reset the hitThisShot flag for enemies
+        enemies.forEach(enemy => {
+            enemy.hitThisShot = false;
+        });
+
+        if (!hit) {
+            // Missed shot
+            player.damageMultiplier = 1.0;
+            fireRate = weapons[currentWeapon].fireRate; // Reset fire rate based on weapon
+            updateHUD();
+            playMissSound();
+        }
+    } else {
+        // Default shooting logic (pistol or other weapons)
+        let rayAngle = player.dir;
+        let eyeX = Math.cos(rayAngle);
+        let eyeY = Math.sin(rayAngle);
+        let maxDistance = 16; // Maximum shooting distance
+
+        // Loop until we hit a wall or reach max distance
+        for (let distanceToWall = 0; distanceToWall < maxDistance; distanceToWall += 0.05) {
+            let testX = player.x + eyeX * distanceToWall;
+            let testY = player.y + eyeY * distanceToWall;
+
+            if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
+                // Hit a wall, stop the ray
+                break;
+            }
+
+            // Check for enemies along the ray
+            for (let enemy of enemies) {
+                let dx = enemy.x - testX;
+                let dy = enemy.y - testY;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 0.3) { // Hit threshold
+                    // Enemy hit
+                    enemy.health -= damage;
+                    hit = true;
+                    if (enemy.health <= 0) {
+                        // Enemy killed
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        playKillSound(); // Play kill sound
+                        // Increase multiplier by 0.1 per kill
+                        player.damageMultiplier += 0.1;
+                        totalKills++; // Increment kill count
+                        // Increase score
+                        score += Math.floor(100 * player.damageMultiplier);
+                        updateHUD();
+                    } else {
+                        playHitSound(); // Play hit sound for damage
+                    }
+                    shotsHit++; // Increment shots hit
+                    break; // Stop checking other enemies
+                }
+            }
+
+            if (hit) {
+                break; // Stop the ray if we've hit an enemy
+            }
+        }
+
+        if (!hit) {
+            // Missed shot
+            player.damageMultiplier = 1.0;
+            fireRate = weapons[currentWeapon].fireRate; // Reset fire rate based on weapon
+            updateHUD();
+            playMissSound();
+        }
     }
 }
 
-if (hit) {
-    break; // Stop the ray if we've hit an enemy
-}
-}
-
-if (!hit) {
-// Missed shot
-player.damageMultiplier = 1.0;
-fireRate = weapons[currentWeapon].fireRate; // Reset fire rate based on weapon
-updateHUD();
-playMissSound();
-}
-}
 
 // Reload weapon function
 function reloadWeapon() {
