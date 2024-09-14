@@ -254,15 +254,17 @@ function getMap(x, y) {
 
 function startGame() {
     isPaused = false;
-    startScreen.style.display = 'none';
-    canvas.style.display = 'block';
-    crosshair.style.display = 'block';
-    backgroundMusic.play();
+    startScreen.style.display = 'none'; // Hide the main menu
+    canvas.style.display = 'block'; // Ensure the canvas is shown
+    crosshair.style.display = 'block'; // Show the crosshair
+    backgroundMusic.currentTime = 0; // Reset background music to the start
+    backgroundMusic.play(); // Start the music
     document.addEventListener('mousemove', mouseMoveHandler);
-    canvas.requestPointerLock();
-    initGame();
-    requestAnimationFrame(gameLoop);
+    canvas.requestPointerLock(); // Lock the mouse pointer to the game canvas
+    initGame(); // Initialize the game elements
+    requestAnimationFrame(gameLoop); // Start the game loop
 }
+
 
 function initGame() {
     player.reset();
@@ -275,15 +277,15 @@ function initGame() {
     totalKills = 0;
     shotsFired = 0;
     shotsHit = 0;
-    inCountdown = false;
     isFiring = false;
     fireRate = weapons[currentWeapon].fireRate;
-    lastFrameTime = null;
     score = 0;
     updateHUD();
-    parseHealthPacks();
-    showRoundInfo(`Round ${currentRound}`, false);
+    parseHealthPacks(); // Initialize health packs on the map
+    showRoundInfo(`Round ${currentRound}`, false); // Display round info
+    initEnemies(); // Initialize enemies for the first round
 }
+
 
 function parseHealthPacks() {
     healthPacks = [];
@@ -766,24 +768,23 @@ function reloadWeapon() {
 function togglePause() {
     if (!isPaused) {
         isPaused = true;
-        pauseMenu.style.display = 'flex';
-        crosshair.style.display = 'none';
-        document.exitPointerLock();
+        pauseMenu.style.display = 'flex'; // Show pause menu
+        crosshair.style.display = 'none'; // Hide crosshair when paused
+        document.exitPointerLock(); // Exit pointer lock mode
         document.removeEventListener('mousemove', mouseMoveHandler);
-
-        // Pause background music
-        backgroundMusic.pause();
+        
+        backgroundMusic.pause(); // Pause the background music
     } else {
         isPaused = false;
-        pauseMenu.style.display = 'none';
-        crosshair.style.display = 'block';
-        canvas.requestPointerLock();
+        pauseMenu.style.display = 'none'; // Hide pause menu
+        crosshair.style.display = 'block'; // Show crosshair again
+        canvas.requestPointerLock(); // Lock the pointer to the canvas
         document.addEventListener('mousemove', mouseMoveHandler);
 
-        // Resume background music
-        backgroundMusic.play();
+        backgroundMusic.play(); // Resume the background music
     }
 }
+
 
 resumeButton.addEventListener('click', togglePause);
 
