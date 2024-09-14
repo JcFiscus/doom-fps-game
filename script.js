@@ -549,7 +549,7 @@ function update(deltaTime) {
     if (enemies.length === 0 && !inCountdown) {
         totalRounds++;
         currentRound++;
-        player.damageMultiplier = 1.0; // Reset multiplier at the end of the round
+        // player.damageMultiplier = 1.0; // Reset multiplier at the end of the round
         updateHUD();
         showRoundInfo(`Round ${currentRound}`, false);
     }
@@ -1114,11 +1114,11 @@ function displayHighScoresOnStart() {
 window.onload = () => {
     displayHighScoresOnStart();
     // Set default mouse sensitivity
-    mouseSensitivityInput.value = '1'; // Adjust as needed
-    mouseSensitivityValue.textContent = '1';
+    mouseSensitivityInput.value = '.25'; // Adjust as needed
+    mouseSensitivityValue.textContent = '.25';
 
     // Initialize player rotation speed
-    playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+    playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || .5;
 
     // Add the event listener for mouse sensitivity input
     mouseSensitivityInput.addEventListener('input', () => {
