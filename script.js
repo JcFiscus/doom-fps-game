@@ -543,19 +543,22 @@ startGame();
 
 // Pause Menu Functionality
 function togglePause() {
-if (pauseMenu.style.display === 'flex') {
-// Resume game
-pauseMenu.style.display = 'none';
-document.addEventListener('mousemove', mouseMoveHandler);
-if (!gameOver && !inCountdown) {
-    requestAnimationFrame(gameLoop);
+    if (pauseMenu.style.display === 'flex') {
+        // Resume game
+        pauseMenu.style.display = 'none';
+        pauseMenu.style.pointerEvents = 'none'; // Disable pointer events
+        document.addEventListener('mousemove', mouseMoveHandler);
+        if (!gameOver && !inCountdown) {
+            requestAnimationFrame(gameLoop);
+        }
+    } else {
+        // Pause game
+        pauseMenu.style.display = 'flex';
+        pauseMenu.style.pointerEvents = 'auto'; // Enable pointer events
+        document.removeEventListener('mousemove', mouseMoveHandler);
+    }
 }
-} else {
-// Pause game
-pauseMenu.style.display = 'flex';
-document.removeEventListener('mousemove', mouseMoveHandler);
-}
-}
+
 
 resumeButton.addEventListener('click', function() {
 togglePause();
