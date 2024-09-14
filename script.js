@@ -424,7 +424,8 @@ function mouseMoveHandler(e) {
         console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
 
         // Adjust the scaling factor as needed for desired sensitivity
-        const sensitivityFactor = 0.005; // Increased from 0.002 to 0.005
+        const baseSensitivity = 0.005; // You can start with 0.005 and adjust as needed
+        const sensitivityFactor = baseSensitivity * playerRotationSpeed; // Sensitivity scales with playerRotationSpeed
         player.dir += e.movementX * playerRotationSpeed * sensitivityFactor;
 
         // Keep player.dir within 0 to 2*PI
