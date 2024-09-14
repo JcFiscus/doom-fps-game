@@ -406,7 +406,7 @@ document.addEventListener('keyup', (e) => {
 
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        player.dir += e.movementX * playerRotationSpeed * 0.01; // Increased from 0.002 to 0.01
+        player.dir += e.movementX * playerRotationSpeed * 0.10;
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
     }
