@@ -259,9 +259,6 @@ let fireRate = weapons[currentWeapon].fireRate;
 let fireTimeout;
 let lastFrameTime = null;
 let playerRotationSpeed;
-let mouseSensitivityInput;
-let mouseSensitivityValue;
-
 
 /* === Map Configuration === */
 
