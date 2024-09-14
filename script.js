@@ -47,8 +47,12 @@ const reloadSound = document.getElementById('reloadSound');
 const noAmmoSound = document.getElementById('noAmmoSound');
 const collectSound = document.getElementById('collectSound');
 
+// Set default mouse sensitivity
+mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityValue.textContent = '1';
+
 // Player Rotation Speed
-let playerRotationSpeed = parseFloat(mouseSensitivityInput.value);
+let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 
 // Weapons Data
 const weapons = {
@@ -370,11 +374,8 @@ backFromSettingsButton.addEventListener('click', () => {
 
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
-    // Set default mouse sensitivity
-    mouseSensitivityInput.value = '1'; // You can adjust this default value as needed
-    mouseSensitivityValue.textContent = '1';
     // Initialize player rotation speed with a default value if necessary
-    let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+    playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 });
 
 document.addEventListener('keydown', (e) => {
@@ -406,7 +407,7 @@ document.addEventListener('keyup', (e) => {
 
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        player.dir += e.movementX * playerRotationSpeed * 3.5;
+        player.dir += e.movementX * playerRotationSpeed * .01;
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
     }
