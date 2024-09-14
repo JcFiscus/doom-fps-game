@@ -48,11 +48,11 @@ const noAmmoSound = document.getElementById('noAmmoSound');
 const collectSound = document.getElementById('collectSound');
 
 // Set default mouse sensitivity
-mouseSensitivityInput.value = '10'; // Adjust as needed
-mouseSensitivityValue.textContent = '10';
+mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityValue.textContent = '1';
 
 // Player Rotation Speed
-let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 10;
+let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 
 // Weapons Data
 const weapons = {
@@ -418,34 +418,27 @@ document.addEventListener('keyup', (e) => {
 // Pointer Lock Change Handling
 document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === canvas) {
-        console.log('Pointer lock is active.');
         document.addEventListener('mousemove', mouseMoveHandler);
     } else {
-        console.log('Pointer lock is not active.');
         document.removeEventListener('mousemove', mouseMoveHandler);
     }
 });
-
 
 // Mouse Move Handler
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
         // Debug: Log movementX for verification
-        console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
+        // console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
 
         // Adjust the scaling factor as needed for desired sensitivity
-        const sensitivityFactor = .02; // Increased from 0.002 to 0.005
+        const sensitivityFactor = 0.005; // Increased from 0.002 to 0.005
         player.dir += e.movementX * playerRotationSpeed * sensitivityFactor;
 
         // Keep player.dir within 0 to 2*PI
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
-
-        console.log('Updated player.dir:', player.dir);
     }
 }
-
-
 
 document.addEventListener('mousedown', (e) => {
     if (document.pointerLockElement === canvas && e.button === 0) {
@@ -462,7 +455,6 @@ document.addEventListener('mouseup', (e) => {
         fireRate = weapons[currentWeapon].fireRate;
     }
 });
-
 
 // Click to request pointer lock is handled via overlay
 
