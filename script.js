@@ -852,8 +852,7 @@ function togglePause() {
 
 resumeButton.addEventListener('click', togglePause);
 
-function quitGame() {
-    gameOver = true;
+function quitGame() {    
     isPaused = false;
     pauseMenu.style.display = 'none';
     canvas.style.display = 'none';
@@ -875,6 +874,8 @@ function quitGame() {
     totalRounds = 0;
     shotsFired = 0;
     shotsHit = 0;
+
+    gameOver = false; // Prevent endGame() from being called
 }
 
 quitButton.addEventListener('click', quitGame);
