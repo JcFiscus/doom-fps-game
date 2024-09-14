@@ -31,6 +31,8 @@ const crosshair = document.querySelector('.crosshair');
 const SHOTGUN_PELLETS = 7; // Number of pellets
 const SHOTGUN_SPREAD = Math.PI / 12; // Spread angle (15 degrees)
 const SHOTGUN_RANGE = 8; // Limited range
+let isPaused = false;
+
 
 // Audio elements
 const backgroundMusic = document.getElementById('backgroundMusic');
@@ -372,14 +374,7 @@ keys[e.key.toLowerCase()] = false;
 });
 
 // Mouse movement for player direction
-document.addEventListener('mousemove', function (e) {
-if (document.pointerLockElement === canvas) {
-player.dir += e.movementX * playerRotationSpeed;
-// Keep angle between 0 and 2pi
-if (player.dir < 0) player.dir += 2 * Math.PI;
-if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
-}
-});
+document.addEventListener('mousemove', mouseMoveHandler);
 
 // Mouse down and up events for automatic firing
 document.addEventListener('mousedown', function (e) {
@@ -410,12 +405,16 @@ fireTimeout = setTimeout(fireShot, fireRate);
 
 // Start game function
 function startGame() {
-startScreen.style.display = 'none';
-canvas.style.display = 'block';
-backgroundMusic.play();
-initGame();
-requestAnimationFrame(gameLoop);
+    isPaused = false;
+    startScreen.style.display = 'none';
+    canvas.style.display = 'block';
+    backgroundMusic.play();
+    crosshair.style.display = 'block'; // Show crosshair
+    document.addEventListener('mousemove', mouseMoveHandler); // Add event listener
+    initGame();
+    requestAnimationFrame(gameLoop);
 }
+
 
 // Initialize game variables
 function initGame() {
@@ -548,21 +547,21 @@ startGame();
 
 // Pause Menu Functionality
 function togglePause() {
-    if (pauseMenu.style.display === 'flex') {
-        // Resume game
-        pauseMenu.style.display = 'none';
-        pauseMenu.style.pointerEvents = 'none'; // Disable pointer events
-        document.addEventListener('mousemove', mouseMoveHandler);
-        if (!gameOver && !inCountdown) {
-            requestAnimationFrame(gameLoop);
-        }
-    } else {
-        // Pause game
+    if (!isPaused) {
+        // Pause the game
+        isPaused = true;
         pauseMenu.style.display = 'flex';
-        pauseMenu.style.pointerEvents = 'auto'; // Enable pointer events
+        crosshair.style.display = 'none'; // Hide crosshair
         document.removeEventListener('mousemove', mouseMoveHandler);
+    } else {
+        // Resume the game
+        isPaused = false;
+        pauseMenu.style.display = 'none';
+        crosshair.style.display = 'block'; // Show crosshair
+        document.addEventListener('mousemove', mouseMoveHandler);
     }
 }
+
 
 
 resumeButton.addEventListener('click', function() {
@@ -595,30 +594,38 @@ pointerLock();
 
 // Game loop
 function gameLoop(timestamp) {
-if (gameOver) {
-endGame();
-return;
+    if (gameOver) {
+        endGame();
+        return;
+    }
+
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    let deltaTime = (timestamp - lastFrameTime) / 1000; // Convert to seconds
+    lastFrameTime = timestamp;
+
+    if (!isPaused) {
+        update(deltaTime);
+        render();
+    }
+
+    // Always continue the game loop
+    requestAnimationFrame(gameLoop);
 }
 
-if (!lastFrameTime) lastFrameTime = timestamp;
-let deltaTime = (timestamp - lastFrameTime) / 1000; // Convert to seconds
-lastFrameTime = timestamp;
-
-update(deltaTime);
-render();
-
-// Continue the game loop only if the game is not paused
-if (pauseMenu.style.display !== 'flex') {
-requestAnimationFrame(gameLoop);
-}
+function mouseMoveHandler(e) {
+    if (document.pointerLockElement === canvas) {
+        player.dir += e.movementX * playerRotationSpeed;
+        // Keep angle between 0 and 2pi
+        if (player.dir < 0) player.dir += 2 * Math.PI;
+        if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
+    }
 }
 
 // Update game state
 function update(deltaTime) {
-// Only update the game if not in countdown
-if (gameOver || inCountdown) {
-return;
-}
+    if (gameOver || inCountdown || isPaused) {
+            return;
+        }
 
 // Player movement
 let moveX = 0;
@@ -1028,16 +1035,19 @@ reloadSound.play();
 
 // Game end function
 function endGame() {
-backgroundMusic.pause();
-let accuracy = shotsFired > 0 ? ((shotsHit / shotsFired) * 100).toFixed(1) : 0;
-let scoreDisplay = `
-<h2>Game Over</h2>
-<p>Score: ${score}</p>
-<p>Rounds Survived: ${totalRounds}</p>
-<p>Enemies Killed: ${totalKills}</p>
-<p>Shots Fired: ${shotsFired}</p>
-<p>Accuracy: ${accuracy}%</p>
-`;
+    isPaused = false;
+    crosshair.style.display = 'none'; // Hide crosshair
+    backgroundMusic.pause();
+    document.removeEventListener('mousemove', mouseMoveHandler); // Remove event listener
+    let accuracy = shotsFired > 0 ? ((shotsHit / shotsFired) * 100).toFixed(1) : 0;
+    let scoreDisplay = `
+    <h2>Game Over</h2>
+    <p>Score: ${score}</p>
+    <p>Rounds Survived: ${totalRounds}</p>
+    <p>Enemies Killed: ${totalKills}</p>
+    <p>Shots Fired: ${shotsFired}</p>
+    <p>Accuracy: ${accuracy}%</p>
+    `;
 
 // Check if score qualifies for high scores
 let highScores = getHighScores();
