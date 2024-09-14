@@ -48,8 +48,8 @@ const noAmmoSound = document.getElementById('noAmmoSound');
 const collectSound = document.getElementById('collectSound');
 
 // Set default mouse sensitivity
-mouseSensitivityInput.value = '10'; // Adjust as needed
-mouseSensitivityValue.textContent = '10';
+mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityValue.textContent = '1';
 
 // Player Rotation Speed
 let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
@@ -246,6 +246,8 @@ class AmmoPack {
 const player = new Player();
 const keys = {};
 let enemies = [];
+let healthPacksArray = [];
+let ammoPacksArray = [];
 
 let gameOver = false;
 let currentRound = 1;
@@ -312,8 +314,10 @@ function startGame() {
     hud.style.display = 'block'; // Show the HUD
     backgroundMusic.currentTime = 0; // Reset background music to the start
     backgroundMusic.play(); // Start the music
-    document.addEventListener('mousemove', mouseMoveHandler);
-    canvas.requestPointerLock(); // Lock the mouse pointer to the game canvas
+
+    // Display message to click canvas to lock pointer
+    showClickToStartMessage();
+
     initGame(); // Initialize the game elements
     requestAnimationFrame(gameLoop); // Start the game loop
 }
@@ -372,9 +376,15 @@ backFromSettingsButton.addEventListener('click', () => {
     settingsContainer.style.display = 'none';
 });
 
+// Initialize mouse sensitivity input with default value
+mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityValue.textContent = mouseSensitivityInput.value;
+
+// Initialize player rotation speed
+let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
-    // Initialize player rotation speed with a default value if necessary
     playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 });
 
@@ -405,14 +415,30 @@ document.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
+// Pointer Lock Change Handling
+document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === canvas) {
+        document.addEventListener('mousemove', mouseMoveHandler);
+    } else {
+        document.removeEventListener('mousemove', mouseMoveHandler);
+    }
+});
+
+// Mouse Move Handler
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        player.dir += e.movementX * playerRotationSpeed * .01;
+        // Debug: Log movementX for verification
+        // console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
+
+        // Adjust the scaling factor as needed for desired sensitivity
+        const sensitivityFactor = 0.005; // Increased from 0.002 to 0.005
+        player.dir += e.movementX * playerRotationSpeed * sensitivityFactor;
+
+        // Keep player.dir within 0 to 2*PI
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
     }
 }
-
 
 document.addEventListener('mousedown', (e) => {
     if (document.pointerLockElement === canvas && e.button === 0) {
@@ -430,11 +456,7 @@ document.addEventListener('mouseup', (e) => {
     }
 });
 
-canvas.addEventListener('click', () => {
-    if (document.pointerLockElement !== canvas && !isPaused) {
-        canvas.requestPointerLock();
-    }
-});
+// Click to request pointer lock is handled via overlay
 
 /* === Game Loop === */
 
@@ -880,7 +902,6 @@ function togglePause() {
         pauseMenu.style.display = 'flex'; // Show pause menu
         crosshair.style.display = 'none'; // Hide crosshair when paused
         document.exitPointerLock(); // Exit pointer lock mode
-        document.removeEventListener('mousemove', mouseMoveHandler);
 
         // Pause background music
         backgroundMusic.pause();
@@ -888,8 +909,9 @@ function togglePause() {
         isPaused = false;
         pauseMenu.style.display = 'none'; // Hide pause menu
         crosshair.style.display = 'block'; // Show crosshair again
-        canvas.requestPointerLock(); // Lock the pointer to the canvas
-        document.addEventListener('mousemove', mouseMoveHandler);
+
+        // Display message to click canvas to lock pointer
+        showClickToStartMessage();
 
         // Resume background music
         backgroundMusic.play();
@@ -1136,7 +1158,6 @@ function isPositionFree(x, y, currentEntity) {
     return true;
 }
 
-
 function initEnemies() {
     enemies = [];
     let enemiesToSpawn = getEnemiesPerRound(currentRound);
@@ -1270,9 +1291,48 @@ function getRandomSpawnPositionForSupply() {
 
 /* === Pointer Lock Handling === */
 
-// Already handled in event listeners
+// Function to show an overlay prompting the user to click to lock the mouse
+function showClickToStartMessage() {
+    // Check if the overlay already exists
+    if (document.getElementById('clickToStartOverlay')) return;
+
+    const clickToStartOverlay = document.createElement('div');
+    clickToStartOverlay.id = 'clickToStartOverlay';
+    clickToStartOverlay.style.position = 'absolute';
+    clickToStartOverlay.style.top = '0';
+    clickToStartOverlay.style.left = '0';
+    clickToStartOverlay.style.width = '100%';
+    clickToStartOverlay.style.height = '100%';
+    clickToStartOverlay.style.display = 'flex';
+    clickToStartOverlay.style.alignItems = 'center';
+    clickToStartOverlay.style.justifyContent = 'center';
+    clickToStartOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    clickToStartOverlay.style.color = 'white';
+    clickToStartOverlay.style.fontSize = '24px';
+    clickToStartOverlay.style.zIndex = '1000';
+    clickToStartOverlay.innerHTML = '<p>Click to Lock Mouse and Start</p>';
+    document.body.appendChild(clickToStartOverlay);
+
+    clickToStartOverlay.addEventListener('click', () => {
+        clickToStartOverlay.style.display = 'none';
+        canvas.requestPointerLock(); // Request pointer lock
+    });
+}
+
+// Initial pointer lock request on canvas click (if needed)
+canvas.addEventListener('click', () => {
+    if (document.pointerLockElement !== canvas && !isPaused) {
+        canvas.requestPointerLock();
+    }
+});
 
 /* === Utility Functions === */
 
 // Existing utility functions like getMap, etc.
 
+// ... (Assuming all other utility functions are already defined above)
+
+/* === Start the Game on Load === */
+
+// Optionally, you can start the game automatically or wait for user interaction
+// Here, we wait for the user to click the start button
