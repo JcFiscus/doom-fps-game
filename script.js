@@ -91,11 +91,19 @@ class Player {
     }
 
     move(moveX, moveY) {
-        if (getMap(Math.floor(this.x + moveX), Math.floor(this.y)) === '.') {
-            this.x += moveX;
+        const newX = this.x + moveX;
+        const newY = this.y + moveY;
+
+        if (getMap(Math.floor(newX), Math.floor(this.y)) === '.') {
+            this.x = newX; // Move horizontally
         }
-        if (getMap(Math.floor(this.x), Math.floor(this.y + moveY)) === '.') {
-            this.y += moveY;
+        if (getMap(Math.floor(this.x), Math.floor(newY)) === '.') {
+            this.y = newY; // Move vertically
+        }
+
+        // Ensure player doesn't move too fast by capping speed
+        if (Math.abs(moveX) > 0.2 || Math.abs(moveY) > 0.2) {
+            this.speed = 0.1; // Reset speed to prevent issues
         }
     }
 
@@ -185,6 +193,40 @@ class HealthPack {
             player.heal(this.healingAmount);
             this.collected = true;
             playCollectSound();
+        }
+    }
+
+    render(ctx) {
+        if (!this.collected) {
+            ctx.fillStyle = 'green';
+            ctx.fillRect(this.x * 10, this.y * 10, 10, 10); // Render health pack
+        }
+    }
+}
+
+class AmmoPack {
+    constructor(x, y, ammoAmount) {
+        this.x = x + 0.5;
+        this.y = y + 0.5;
+        this.ammoAmount = ammoAmount;
+        this.collected = false;
+    }
+
+    checkCollection(player) {
+        let dx = this.x - player.x;
+        let dy = this.y - player.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist < 0.5) {
+            weapons[currentWeapon].ammo = Math.min(weapons[currentWeapon].maxAmmo, weapons[currentWeapon].ammo + this.ammoAmount);
+            this.collected = true;
+            playCollectSound();
+        }
+    }
+
+    render(ctx) {
+        if (!this.collected) {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(this.x * 10, this.y * 10, 10, 10); // Render ammo pack
         }
     }
 }
@@ -456,6 +498,27 @@ function update(deltaTime) {
     healthPacks = healthPacks.filter(pack => !pack.collected);
 }
 
+// Drop health packs and ammo periodically
+function dropSupplies() {
+    if (Math.random() < 0.1) {
+        // 10% chance to drop health or ammo
+        if (Math.random() < 0.5) {
+            healthPacks.push(new HealthPack(randomMapPositionX(), randomMapPositionY(), 25));
+        } else {
+            ammoPacks.push(new AmmoPack(randomMapPositionX(), randomMapPositionY(), 10));
+        }
+    }
+}
+
+function randomMapPositionX() {
+    return Math.floor(Math.random() * mapWidth);
+}
+
+function randomMapPositionY() {
+    return Math.floor(Math.random() * mapHeight);
+}
+
+
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -502,9 +565,17 @@ function render() {
 
         zBuffer[x] = distanceToWall;
     }
-
-    // Draw Enemies
-    enemies.forEach((enemy) => {
+            // Sort enemies by distance, furthest first
+        enemies.forEach((enemy) => {
+            let dx = enemy.x - player.x;
+            let dy = enemy.y - player.y;
+            enemy.distance = Math.hypot(dx, dy); // Calculate distance from the player
+        });
+        
+        enemies.sort((a, b) => b.distance - a.distance); // Sort by distance (furthest to nearest)
+        
+        // Render enemies
+        enemies.forEach((enemy) => {
         let dx = enemy.x - player.x;
         let dy = enemy.y - player.y;
         let distance = Math.hypot(dx, dy);
@@ -574,6 +645,16 @@ function render() {
         lastShot = null;
     }
 
+    // Render health packs
+    healthPacks.forEach(pack => {
+        pack.render(ctx);
+    });
+    
+    // Render ammo packs
+    ammoPacks.forEach(pack => {
+        pack.render(ctx);
+    });
+    
     // Draw mini-map
     drawMiniMap();
 }
@@ -584,32 +665,85 @@ const SHOTGUN_PELLETS = 7;
 const SHOTGUN_SPREAD = Math.PI / 12; // 15 degrees
 const SHOTGUN_RANGE = 8;
 
+let fireRate = weapons[currentWeapon].fireRate;
+const defaultFireRate = 500; // Default pistol fire rate
+const minFireRate = 100; // Minimum fire rate
+const fireRateDecrease = 50; // Decrease fire rate by 50ms per hit
+
 function fireShot() {
     if (!isFiring || gameOver || isPaused) return;
 
     shoot();
 
+    // Decrease fire rate if the player hits the target
+    fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
+    
     fireTimeout = setTimeout(fireShot, fireRate);
 }
 
 function shoot() {
     shotsFired++;
 
+    // Check ammo
     if (weapons[currentWeapon].ammo <= 0) {
         playNoAmmoSound();
         return;
     }
-
+    
     if (weapons[currentWeapon].ammo !== Infinity) {
         weapons[currentWeapon].ammo--;
         updateHUD();
-    }
+}
 
+    // Play shooting sound
     shootSound.currentTime = 0;
     shootSound.play();
 
     let hit = false;
 
+    // Shooting logic
+    let rayAngle = player.dir;
+    let eyeX = Math.cos(rayAngle);
+    let eyeY = Math.sin(rayAngle);
+
+    let distanceToWall = 0;
+    let maxDistance = 16;
+
+    while (distanceToWall < maxDistance) {
+        distanceToWall += 0.05;
+        let testX = player.x + eyeX * distanceToWall;
+        let testY = player.y + eyeY * distanceToWall;
+
+        if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
+            break;
+        }
+
+        for (let enemy of enemies) {
+            let dx = enemy.x - testX;
+            let dy = enemy.y - testY;
+            let dist = Math.hypot(dx, dy);
+            if (dist < 0.3) { // Hit threshold
+                enemy.health -= weapons.pistol.damage;
+                hit = true;
+
+                enemy.isHit = true;
+                enemy.hitTime = performance.now();
+                break;
+            }
+        }
+
+        if (hit) {
+            fireRate = Math.max(minFireRate, fireRate - fireRateDecrease); // Accelerate fire rate
+            break;
+        }
+    }
+
+    if (!hit) {
+        fireRate = defaultFireRate; // Reset fire rate if missed
+    }
+}
+
+    
     let damage = weapons[currentWeapon].damage * player.damageMultiplier;
 
     if (currentWeapon === 'shotgun') {
@@ -788,7 +922,7 @@ function togglePause() {
 
 resumeButton.addEventListener('click', togglePause);
 
-quitButton.addEventListener('click', () => {
+function quitGame() {
     gameOver = true;
     isPaused = false;
     pauseMenu.style.display = 'none';
@@ -796,9 +930,22 @@ quitButton.addEventListener('click', () => {
     crosshair.style.display = 'none';
     startScreen.style.display = 'flex';
     backgroundMusic.pause();
-    backgroundMusic.currentTime = 0;
+    backgroundMusic.currentTime = 0; // Reset background music
     document.exitPointerLock();
-});
+
+    // Reset game state
+    player.reset();
+    enemies = [];
+    healthPacks = [];
+    currentRound = 1;
+    score = 0;
+    totalKills = 0;
+    totalRounds = 0;
+    shotsFired = 0;
+    shotsHit = 0;
+}
+
+quitButton.addEventListener('click', quitGame); // Ensure quitGame is called
 
 /* === Game Over Handling === */
 
@@ -1039,30 +1186,33 @@ function getRandomSpawnPosition() {
 function showRoundInfo(message, isGameOver) {
     roundMessage.innerHTML = `<h2>${message}</h2>`;
     roundInfo.style.display = 'flex';
+    roundInfo.style.pointerEvents = 'none'; // Non-interactive
+
     if (isGameOver) {
         restartButton.style.display = 'block';
-        roundInfo.style.pointerEvents = 'auto';
+        roundInfo.style.pointerEvents = 'auto'; // Allow clicking buttons
         countdownElement.style.display = 'none';
         inCountdown = false;
     } else {
         restartButton.style.display = 'none';
-        roundInfo.style.pointerEvents = 'none';
         countdownElement.style.display = 'block';
         inCountdown = true;
-    }
-    if (!isGameOver) {
+
         let countdown = 3;
         countdownElement.textContent = `Next round starts in ${countdown}`;
         let countdownInterval = setInterval(() => {
             countdown--;
+
             if (countdown > 0) {
                 countdownElement.textContent = `Next round starts in ${countdown}`;
             } else {
                 clearInterval(countdownInterval);
                 roundInfo.style.display = 'none';
-                inCountdown = false;
-                initEnemies();
+                inCountdown = false; // Countdown over, enemies spawn
+
+                initEnemies(); // Spawn enemies
             }
-        }, 1000);
+        }, 1000); // 1 second interval
     }
 }
+
