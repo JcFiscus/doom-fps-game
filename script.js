@@ -83,6 +83,10 @@ const fov = Math.PI / 3; // 60 degrees field of view
 // Variable to store last shot data for visual effects
 let lastShot = null;
 
+// Arrays for Supplies
+let ammoPacks = [];
+let healthPacks = [];
+
 /* === Game Classes === */
 
 class Player {
@@ -94,6 +98,7 @@ class Player {
         const newX = this.x + moveX;
         const newY = this.y + moveY;
 
+        // Prevent moving into walls
         if (getMap(Math.floor(newX), Math.floor(this.y)) === '.') {
             this.x = newX; // Move horizontally
         }
@@ -101,7 +106,7 @@ class Player {
             this.y = newY; // Move vertically
         }
 
-        // Ensure player doesn't move too fast by capping speed
+        // Prevent moving too fast
         if (Math.abs(moveX) > 0.2 || Math.abs(moveY) > 0.2) {
             this.speed = 0.1; // Reset speed to prevent issues
         }
@@ -199,7 +204,7 @@ class HealthPack {
     render(ctx) {
         if (!this.collected) {
             ctx.fillStyle = 'green';
-            ctx.fillRect(this.x * 10, this.y * 10, 10, 10); // Render health pack
+            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render health pack
         }
     }
 }
@@ -226,7 +231,7 @@ class AmmoPack {
     render(ctx) {
         if (!this.collected) {
             ctx.fillStyle = 'blue';
-            ctx.fillRect(this.x * 10, this.y * 10, 10, 10); // Render ammo pack
+            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render ammo pack
         }
     }
 }
@@ -236,7 +241,8 @@ class AmmoPack {
 const player = new Player();
 const keys = {};
 let enemies = [];
-let healthPacks = [];
+let ammoPacksArray = []; // Renamed to avoid conflict
+let healthPacksArray = [];
 
 let gameOver = false;
 let currentRound = 1;
@@ -289,15 +295,16 @@ function getMap(x, y) {
         return '#';
     }
     if (map[y][x] === 'H') {
-        return '.';
+        return '.'; // Health pack tiles are walkable
     }
     return map[y][x];
 }
 
 function startGame() {
     isPaused = false;
+    gameOver = false;
     startScreen.style.display = 'none'; // Hide the main menu
-    canvas.style.display = 'block'; // Ensure the canvas is shown
+    canvas.style.display = 'block'; // Show the game canvas
     crosshair.style.display = 'block'; // Show the crosshair
     backgroundMusic.currentTime = 0; // Reset background music to the start
     backgroundMusic.play(); // Start the music
@@ -307,37 +314,39 @@ function startGame() {
     requestAnimationFrame(gameLoop); // Start the game loop
 }
 
-
 function initGame() {
     player.reset();
     currentWeapon = 'pistol';
     weapons.pistol.ammo = Infinity;
     weapons.shotgun.ammo = weapons.shotgun.maxAmmo;
     weapons.rifle.ammo = weapons.rifle.maxAmmo;
-    gameOver = false;
     totalRounds = 0;
     totalKills = 0;
     shotsFired = 0;
     shotsHit = 0;
-    isFiring = false;
-    fireRate = weapons[currentWeapon].fireRate;
     score = 0;
     updateHUD();
     parseHealthPacks(); // Initialize health packs on the map
+    parseAmmoPacks(); // Initialize ammo packs on the map
     showRoundInfo(`Round ${currentRound}`, false); // Display round info
     initEnemies(); // Initialize enemies for the first round
 }
 
-
 function parseHealthPacks() {
-    healthPacks = [];
+    healthPacksArray = [];
     for (let y = 0; y < mapHeight; y++) {
         for (let x = 0; x < mapWidth; x++) {
             if (map[y][x] === 'H') {
-                healthPacks.push(new HealthPack(x, y, 25));
+                healthPacksArray.push(new HealthPack(x, y, 25));
             }
         }
     }
+}
+
+function parseAmmoPacks() {
+    ammoPacksArray = [];
+    // Optionally, you can define specific ammo pack locations
+    // For now, they will be spawned periodically
 }
 
 /* === Event Listeners === */
@@ -489,35 +498,26 @@ function update(deltaTime) {
     }
 
     // Health Packs Collection
-    healthPacks.forEach(healthPack => {
-        if (!healthPack.collected) {
-            healthPack.checkCollection(player);
+    healthPacksArray.forEach(pack => {
+        if (!pack.collected) {
+            pack.checkCollection(player);
         }
     });
 
-    healthPacks = healthPacks.filter(pack => !pack.collected);
-}
+    healthPacksArray = healthPacksArray.filter(pack => !pack.collected);
 
-// Drop health packs and ammo periodically
-function dropSupplies() {
-    if (Math.random() < 0.1) {
-        // 10% chance to drop health or ammo
-        if (Math.random() < 0.5) {
-            healthPacks.push(new HealthPack(randomMapPositionX(), randomMapPositionY(), 25));
-        } else {
-            ammoPacks.push(new AmmoPack(randomMapPositionX(), randomMapPositionY(), 10));
+    // Ammo Packs Collection
+    ammoPacksArray.forEach(pack => {
+        if (!pack.collected) {
+            pack.checkCollection(player);
         }
-    }
-}
+    });
 
-function randomMapPositionX() {
-    return Math.floor(Math.random() * mapWidth);
-}
+    ammoPacksArray = ammoPacksArray.filter(pack => !pack.collected);
 
-function randomMapPositionY() {
-    return Math.floor(Math.random() * mapHeight);
+    // Periodically Drop Supplies
+    dropSupplies();
 }
-
 
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -565,17 +565,18 @@ function render() {
 
         zBuffer[x] = distanceToWall;
     }
-            // Sort enemies by distance, furthest first
-        enemies.forEach((enemy) => {
-            let dx = enemy.x - player.x;
-            let dy = enemy.y - player.y;
-            enemy.distance = Math.hypot(dx, dy); // Calculate distance from the player
-        });
-        
-        enemies.sort((a, b) => b.distance - a.distance); // Sort by distance (furthest to nearest)
-        
-        // Render enemies
-        enemies.forEach((enemy) => {
+
+    // Sort enemies by distance, furthest first
+    enemies.forEach((enemy) => {
+        let dx = enemy.x - player.x;
+        let dy = enemy.y - player.y;
+        enemy.distance = Math.hypot(dx, dy); // Calculate distance from the player
+    });
+
+    enemies.sort((a, b) => b.distance - a.distance); // Sort by distance (furthest to nearest)
+
+    // Render enemies
+    enemies.forEach((enemy) => {
         let dx = enemy.x - player.x;
         let dy = enemy.y - player.y;
         let distance = Math.hypot(dx, dy);
@@ -607,7 +608,7 @@ function render() {
                     ctx.fillRect(screenX, enemyY, enemySize, enemySize);
                     ctx.strokeRect(screenX, enemyY, enemySize, enemySize);
 
-                    // Enemy health bar (optional)
+                    // Enemy health bar
                     ctx.fillStyle = 'black';
                     ctx.fillRect(screenX + enemySize / 4, enemyY - 10, enemySize / 2, 5);
                     ctx.fillStyle = 'green';
@@ -615,6 +616,16 @@ function render() {
                 }
             }
         }
+    });
+
+    // Render health packs
+    healthPacksArray.forEach(pack => {
+        pack.render(ctx);
+    });
+
+    // Render ammo packs
+    ammoPacksArray.forEach(pack => {
+        pack.render(ctx);
     });
 
     // Render bullet trace
@@ -645,28 +656,19 @@ function render() {
         lastShot = null;
     }
 
-    // Render health packs
-    healthPacks.forEach(pack => {
-        pack.render(ctx);
-    });
-    
-    // Render ammo packs
-    ammoPacks.forEach(pack => {
-        pack.render(ctx);
-    });
-    
     // Draw mini-map
     drawMiniMap();
 }
 
 /* === Shooting and Weapon Handling === */
 
+// Constants for Shotgun
 const SHOTGUN_PELLETS = 7;
 const SHOTGUN_SPREAD = Math.PI / 12; // 15 degrees
 const SHOTGUN_RANGE = 8;
 
-let fireRate = weapons[currentWeapon].fireRate;
-const defaultFireRate = 500; // Default pistol fire rate
+// Fire rate parameters for pistol
+const defaultFireRate = weapons.pistol.fireRate; // 500ms
 const minFireRate = 100; // Minimum fire rate
 const fireRateDecrease = 50; // Decrease fire rate by 50ms per hit
 
@@ -675,9 +677,7 @@ function fireShot() {
 
     shoot();
 
-    // Decrease fire rate if the player hits the target
-    fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
-    
+    // Continue firing based on current fire rate
     fireTimeout = setTimeout(fireShot, fireRate);
 }
 
@@ -689,11 +689,12 @@ function shoot() {
         playNoAmmoSound();
         return;
     }
-    
+
+    // Decrement ammo if not infinite
     if (weapons[currentWeapon].ammo !== Infinity) {
         weapons[currentWeapon].ammo--;
         updateHUD();
-}
+    }
 
     // Play shooting sound
     shootSound.currentTime = 0;
@@ -701,52 +702,11 @@ function shoot() {
 
     let hit = false;
 
-    // Shooting logic
-    let rayAngle = player.dir;
-    let eyeX = Math.cos(rayAngle);
-    let eyeY = Math.sin(rayAngle);
-
-    let distanceToWall = 0;
-    let maxDistance = 16;
-
-    while (distanceToWall < maxDistance) {
-        distanceToWall += 0.05;
-        let testX = player.x + eyeX * distanceToWall;
-        let testY = player.y + eyeY * distanceToWall;
-
-        if (getMap(Math.floor(testX), Math.floor(testY)) === '#') {
-            break;
-        }
-
-        for (let enemy of enemies) {
-            let dx = enemy.x - testX;
-            let dy = enemy.y - testY;
-            let dist = Math.hypot(dx, dy);
-            if (dist < 0.3) { // Hit threshold
-                enemy.health -= weapons.pistol.damage;
-                hit = true;
-
-                enemy.isHit = true;
-                enemy.hitTime = performance.now();
-                break;
-            }
-        }
-
-        if (hit) {
-            fireRate = Math.max(minFireRate, fireRate - fireRateDecrease); // Accelerate fire rate
-            break;
-        }
-    }
-
-    if (!hit) {
-        fireRate = defaultFireRate; // Reset fire rate if missed
-    }
-}
-
-    
+    // Determine damage based on weapon
     let damage = weapons[currentWeapon].damage * player.damageMultiplier;
 
     if (currentWeapon === 'shotgun') {
+        // Shotgun logic with pellet spread
         for (let i = 0; i < SHOTGUN_PELLETS; i++) {
             let spreadAngle = player.dir + (Math.random() - 0.5) * SHOTGUN_SPREAD;
             let eyeX = Math.cos(spreadAngle);
@@ -800,13 +760,17 @@ function shoot() {
         }
 
         if (!hit) {
+            // Missed shot logic
             player.damageMultiplier = 1.0;
             fireRate = weapons[currentWeapon].fireRate;
             updateHUD();
             playMissSound();
         }
     } else {
-        let cameraX = 0;
+        // For pistol and rifle, align the bullet with the crosshair
+
+        // Calculate the ray angle aligned with the crosshair
+        let cameraX = 0; // Center of the screen
         let rayAngle = player.dir + Math.atan(cameraX * Math.tan(fov / 2));
         let eyeX = Math.cos(rayAngle);
         let eyeY = Math.sin(rayAngle);
@@ -860,7 +824,7 @@ function shoot() {
             }
 
             if (currentWeapon !== 'rifle' && hit) {
-                break;
+                break; // Stop the ray if we've hit an enemy with pistol
             }
         }
 
@@ -870,6 +834,7 @@ function shoot() {
             });
         }
 
+        // Store the shot data for rendering the bullet trace
         if (shotHitX !== null && shotHitY !== null) {
             lastShot = {
                 x: shotHitX,
@@ -879,10 +844,18 @@ function shoot() {
         }
 
         if (!hit) {
+            // Missed shot logic
             player.damageMultiplier = 1.0;
             fireRate = weapons[currentWeapon].fireRate;
             updateHUD();
             playMissSound();
+        }
+
+        // Accelerate fire rate if hit with pistol
+        if (currentWeapon === 'pistol' && hit) {
+            fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
+        } else if (currentWeapon === 'pistol' && !hit) {
+            fireRate = defaultFireRate; // Reset fire rate on miss
         }
     }
 }
@@ -906,8 +879,9 @@ function togglePause() {
         crosshair.style.display = 'none'; // Hide crosshair when paused
         document.exitPointerLock(); // Exit pointer lock mode
         document.removeEventListener('mousemove', mouseMoveHandler);
-        
-        backgroundMusic.pause(); // Pause the background music
+
+        // Pause background music
+        backgroundMusic.pause();
     } else {
         isPaused = false;
         pauseMenu.style.display = 'none'; // Hide pause menu
@@ -915,10 +889,10 @@ function togglePause() {
         canvas.requestPointerLock(); // Lock the pointer to the canvas
         document.addEventListener('mousemove', mouseMoveHandler);
 
-        backgroundMusic.play(); // Resume the background music
+        // Resume background music
+        backgroundMusic.play();
     }
 }
-
 
 resumeButton.addEventListener('click', togglePause);
 
@@ -936,7 +910,8 @@ function quitGame() {
     // Reset game state
     player.reset();
     enemies = [];
-    healthPacks = [];
+    ammoPacksArray = [];
+    healthPacksArray = [];
     currentRound = 1;
     score = 0;
     totalKills = 0;
@@ -945,7 +920,7 @@ function quitGame() {
     shotsHit = 0;
 }
 
-quitButton.addEventListener('click', quitGame); // Ensure quitGame is called
+quitButton.addEventListener('click', quitGame);
 
 /* === Game Over Handling === */
 
@@ -983,7 +958,7 @@ function endGame() {
     inCountdown = false;
 
     if (qualifies) {
-        document.getElementById('saveScoreButton').addEventListener('click', function() {
+        document.getElementById('saveScoreButton').addEventListener('click', function () {
             let playerName = document.getElementById('playerName').value.trim() || 'Anonymous';
             saveHighScore(playerName, score);
             displayHighScores();
@@ -1024,6 +999,10 @@ function playCollectSound() {
     collectSound.play();
 }
 
+function playDamageSound() {
+    // Optional: Implement damage sound
+}
+
 /* === HUD and UI Updates === */
 
 function updateHUD() {
@@ -1037,7 +1016,10 @@ function updateHUD() {
 /* === Mini-Map Rendering === */
 
 function drawMiniMap() {
-    // Mini-map rendering logic
+    // Mini-map scaling factor
+    const scale = 10; // Each map tile is 10x10 pixels
+
+    // Clear mini-map
     miniMapCtx.clearRect(0, 0, miniMap.width, miniMap.height);
 
     // Draw the map
@@ -1045,36 +1027,46 @@ function drawMiniMap() {
         for (let x = 0; x < mapWidth; x++) {
             if (map[y][x] === '#') {
                 miniMapCtx.fillStyle = 'gray';
-                miniMapCtx.fillRect(x * 10, y * 10, 10, 10);
+                miniMapCtx.fillRect(x * scale, y * scale, scale, scale);
             } else if (map[y][x] === 'H') {
                 miniMapCtx.fillStyle = 'green';
-                miniMapCtx.fillRect(x * 10, y * 10, 10, 10);
+                miniMapCtx.fillRect(x * scale, y * scale, scale, scale);
             } else {
                 miniMapCtx.fillStyle = 'black';
-                miniMapCtx.fillRect(x * 10, y * 10, 10, 10);
+                miniMapCtx.fillRect(x * scale, y * scale, scale, scale);
             }
         }
     }
 
+    // Draw health packs
+    healthPacksArray.forEach(pack => {
+        pack.render(miniMapCtx);
+    });
+
+    // Draw ammo packs
+    ammoPacksArray.forEach(pack => {
+        pack.render(miniMapCtx);
+    });
+
     // Draw enemies
     enemies.forEach(enemy => {
         miniMapCtx.fillStyle = 'red';
-        miniMapCtx.fillRect(enemy.x * 10 - 2, enemy.y * 10 - 2, 4, 4);
+        miniMapCtx.fillRect(enemy.x * scale - 2, enemy.y * scale - 2, 4, 4);
     });
 
     // Draw player
     miniMapCtx.fillStyle = 'blue';
     miniMapCtx.beginPath();
-    miniMapCtx.arc(player.x * 10, player.y * 10, 4, 0, Math.PI * 2);
+    miniMapCtx.arc(player.x * scale, player.y * scale, 4, 0, Math.PI * 2);
     miniMapCtx.fill();
 
     // Draw player direction
     miniMapCtx.strokeStyle = 'blue';
     miniMapCtx.beginPath();
-    miniMapCtx.moveTo(player.x * 10, player.y * 10);
+    miniMapCtx.moveTo(player.x * scale, player.y * scale);
     miniMapCtx.lineTo(
-        (player.x + Math.cos(player.dir)) * 10,
-        (player.y + Math.sin(player.dir)) * 10
+        (player.x + Math.cos(player.dir)) * scale,
+        (player.y + Math.sin(player.dir)) * scale
     );
     miniMapCtx.stroke();
 }
@@ -1114,32 +1106,9 @@ function displayHighScoresOnStart() {
     displayHighScores();
 }
 
-// Make sure the DOM is fully loaded before attaching event listeners
-window.onload = function() {
-    // Start game button listener
-    startButton.addEventListener('click', startGame);
-    
-    // Quit game button listener
-    quitButton.addEventListener('click', quitGame);
-    
-    // Resume game button listener (if pausing is enabled)
-    resumeButton.addEventListener('click', togglePause);
-    
-    // Other button listeners as needed
-    viewHighScoresButton.addEventListener('click', function() {
-        displayHighScores();
-        highScoresContainer.style.display = 'block';
-    });
-    
-    backFromHighScoresButton.addEventListener('click', function() {
-        highScoresContainer.style.display = 'none';
-    });
-
-    backFromSettingsButton.addEventListener('click', function() {
-        settingsContainer.style.display = 'none';
-    });
+window.onload = () => {
+    displayHighScoresOnStart();
 };
-
 
 /* === Additional Functions === */
 
@@ -1189,16 +1158,16 @@ function getRandomSpawnPosition() {
     const minDistanceFromPlayer = 5;
     let maxAttempts = 100;
     for (let i = 0; i < maxAttempts; i++) {
-        let x = Math.random() * (mapWidth - 2) + 1;
-        let y = Math.random() * (mapHeight - 2) + 1;
-        if (getMap(Math.floor(x), Math.floor(y)) === '.') {
-            let distance = Math.hypot(x - player.x, y - player.y);
+        let x = Math.floor(Math.random() * (mapWidth - 2) + 1);
+        let y = Math.floor(Math.random() * (mapHeight - 2) + 1);
+        if (getMap(x, y) === '.') {
+            let distance = Math.hypot(x + 0.5 - player.x, y + 0.5 - player.y);
             if (distance > minDistanceFromPlayer) {
                 let isOccupied = enemies.some(enemy =>
-                    Math.floor(enemy.x) === Math.floor(x) && Math.floor(enemy.y) === Math.floor(y)
+                    Math.floor(enemy.x) === x && Math.floor(enemy.y) === y
                 );
                 if (!isOccupied) {
-                    return { x: Math.floor(x), y: Math.floor(y) };
+                    return { x, y };
                 }
             }
         }
@@ -1209,7 +1178,7 @@ function getRandomSpawnPosition() {
 function showRoundInfo(message, isGameOver) {
     roundMessage.innerHTML = `<h2>${message}</h2>`;
     roundInfo.style.display = 'flex';
-    roundInfo.style.pointerEvents = 'none'; // Non-interactive
+    roundInfo.style.pointerEvents = 'none'; // Allow player movement
 
     if (isGameOver) {
         restartButton.style.display = 'block';
@@ -1238,4 +1207,60 @@ function showRoundInfo(message, isGameOver) {
         }, 1000); // 1 second interval
     }
 }
+
+/* === Supply Dropping === */
+
+function dropSupplies() {
+    if (Math.random() < 0.01) { // 1% chance each frame to drop a supply
+        // Decide to drop health or ammo
+        if (Math.random() < 0.5) {
+            // Drop health pack
+            let spawn = getRandomSpawnPositionForSupply();
+            if (spawn) {
+                healthPacksArray.push(new HealthPack(spawn.x, spawn.y, 25));
+            }
+        } else {
+            // Drop ammo pack
+            let spawn = getRandomSpawnPositionForSupply();
+            if (spawn) {
+                ammoPacksArray.push(new AmmoPack(spawn.x, spawn.y, 10));
+            }
+        }
+    }
+}
+
+function getRandomSpawnPositionForSupply() {
+    const minDistanceFromPlayer = 3;
+    let maxAttempts = 100;
+    for (let i = 0; i < maxAttempts; i++) {
+        let x = Math.floor(Math.random() * (mapWidth - 2) + 1);
+        let y = Math.floor(Math.random() * (mapHeight - 2) + 1);
+        if (getMap(x, y) === '.') {
+            let distance = Math.hypot(x + 0.5 - player.x, y + 0.5 - player.y);
+            if (distance > minDistanceFromPlayer) {
+                let isOccupied = enemies.some(enemy =>
+                    Math.floor(enemy.x) === x && Math.floor(enemy.y) === y
+                );
+                let isHealthPack = healthPacksArray.some(pack =>
+                    Math.floor(pack.x) === x && Math.floor(pack.y) === y
+                );
+                let isAmmoPack = ammoPacksArray.some(pack =>
+                    Math.floor(pack.x) === x && Math.floor(pack.y) === y
+                );
+                if (!isOccupied && !isHealthPack && !isAmmoPack) {
+                    return { x, y };
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/* === Pause and Resume Music === */
+
+// Already handled in togglePause()
+
+/* === Utility Functions === */
+
+// Existing utility functions like getMap, etc.
 
