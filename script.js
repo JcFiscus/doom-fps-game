@@ -198,6 +198,9 @@ class HealthPack {
             player.heal(this.healingAmount);
             this.collected = true;
             playCollectSound();
+
+            // Update HUD if needed
+            updateHUD();
         }
     }
 
@@ -225,6 +228,8 @@ class AmmoPack {
             weapons[currentWeapon].ammo = Math.min(weapons[currentWeapon].maxAmmo, weapons[currentWeapon].ammo + this.ammoAmount);
             this.collected = true;
             playCollectSound();
+
+            updateHUD(); // Update HUD immediately
         }
     }
 
@@ -306,6 +311,7 @@ function startGame() {
     startScreen.style.display = 'none'; // Hide the main menu
     canvas.style.display = 'block'; // Show the game canvas
     crosshair.style.display = 'block'; // Show the crosshair
+    hud.style.display = 'block'; // Show the HUD
     backgroundMusic.currentTime = 0; // Reset background music to the start
     backgroundMusic.play(); // Start the music
     document.addEventListener('mousemove', mouseMoveHandler);
@@ -320,11 +326,13 @@ function initGame() {
     weapons.pistol.ammo = Infinity;
     weapons.shotgun.ammo = weapons.shotgun.maxAmmo;
     weapons.rifle.ammo = weapons.rifle.maxAmmo;
+    currentRound = 1;
     totalRounds = 0;
     totalKills = 0;
     shotsFired = 0;
     shotsHit = 0;
     score = 0;
+    player.damageMultiplier = 1.0;
     updateHUD();
     parseHealthPacks(); // Initialize health packs on the map
     parseAmmoPacks(); // Initialize ammo packs on the map
@@ -400,7 +408,7 @@ document.addEventListener('keyup', (e) => {
 
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        player.dir += e.movementX * playerRotationSpeed;
+        player.dir += e.movementX * playerRotationSpeed * 0.002;
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
     }
@@ -493,6 +501,7 @@ function update(deltaTime) {
     if (enemies.length === 0 && !inCountdown) {
         totalRounds++;
         currentRound++;
+        player.damageMultiplier = 1.0; // Reset multiplier at the end of the round
         updateHUD();
         showRoundInfo(`Round ${currentRound}`, false);
     }
@@ -566,19 +575,21 @@ function render() {
         zBuffer[x] = distanceToWall;
     }
 
-    // Sort enemies by distance, furthest first
-    enemies.forEach((enemy) => {
-        let dx = enemy.x - player.x;
-        let dy = enemy.y - player.y;
-        enemy.distance = Math.hypot(dx, dy); // Calculate distance from the player
+    // Sort entities by distance
+    const entities = [...enemies, ...healthPacksArray, ...ammoPacksArray];
+
+    entities.forEach((entity) => {
+        let dx = entity.x - player.x;
+        let dy = entity.y - player.y;
+        entity.distance = Math.hypot(dx, dy);
     });
 
-    enemies.sort((a, b) => b.distance - a.distance); // Sort by distance (furthest to nearest)
+    entities.sort((a, b) => b.distance - a.distance);
 
-    // Render enemies
-    enemies.forEach((enemy) => {
-        let dx = enemy.x - player.x;
-        let dy = enemy.y - player.y;
+    // Render entities
+    entities.forEach((entity) => {
+        let dx = entity.x - player.x;
+        let dy = entity.y - player.y;
         let distance = Math.hypot(dx, dy);
 
         let angle = Math.atan2(dy, dx) - player.dir;
@@ -586,46 +597,41 @@ function render() {
         if (angle > Math.PI) angle -= 2 * Math.PI;
 
         if (Math.abs(angle) < fov / 2) {
-            let enemySize = (canvas.height / distance) * 0.7;
+            let entitySize = (canvas.height / distance) * 0.7;
             let projectionPlaneDistance = (canvas.width / 2) / Math.tan(fov / 2);
-            let screenX = Math.tan(angle) * projectionPlaneDistance + canvas.width / 2 - enemySize / 2;
-            let enemyY = canvas.height / 2 - enemySize / 2;
+            let screenX = Math.tan(angle) * projectionPlaneDistance + canvas.width / 2 - entitySize / 2;
+            let entityY = canvas.height / 2 - entitySize / 2;
 
-            let screenXCenter = Math.floor(screenX + enemySize / 2);
+            let screenXCenter = Math.floor(screenX + entitySize / 2);
 
             if (screenXCenter >= 0 && screenXCenter < canvas.width) {
                 if (distance < zBuffer[screenXCenter] || isNaN(zBuffer[screenXCenter])) {
-                    // Check for hit effect
-                    if (enemy.isHit && performance.now() - enemy.hitTime < 200) {
-                        ctx.fillStyle = 'orange';
-                    } else {
-                        ctx.fillStyle = 'red';
-                        enemy.isHit = false;
+                    if (entity instanceof Enemy) {
+                        // Check for hit effect
+                        if (entity.isHit && performance.now() - entity.hitTime < 200) {
+                            ctx.fillStyle = 'orange';
+                        } else {
+                            ctx.fillStyle = 'red';
+                            entity.isHit = false;
+                        }
+
+                        ctx.strokeStyle = 'black';
+                        ctx.lineWidth = 2;
+                        ctx.fillRect(screenX, entityY, entitySize, entitySize);
+                        ctx.strokeRect(screenX, entityY, entitySize, entitySize);
+
+                        // Enemy health bar
+                        ctx.fillStyle = 'black';
+                        ctx.fillRect(screenX + entitySize / 4, entityY - 10, entitySize / 2, 5);
+                        ctx.fillStyle = 'green';
+                        ctx.fillRect(screenX + entitySize / 4, entityY - 10, (entity.health / getEnemyHealth(currentRound)) * (entitySize / 2), 5);
+                    } else if (entity instanceof HealthPack || entity instanceof AmmoPack) {
+                        ctx.fillStyle = entity instanceof HealthPack ? 'green' : 'blue';
+                        ctx.fillRect(screenX, entityY, entitySize, entitySize);
                     }
-
-                    ctx.strokeStyle = 'black';
-                    ctx.lineWidth = 2;
-                    ctx.fillRect(screenX, enemyY, enemySize, enemySize);
-                    ctx.strokeRect(screenX, enemyY, enemySize, enemySize);
-
-                    // Enemy health bar
-                    ctx.fillStyle = 'black';
-                    ctx.fillRect(screenX + enemySize / 4, enemyY - 10, enemySize / 2, 5);
-                    ctx.fillStyle = 'green';
-                    ctx.fillRect(screenX + enemySize / 4, enemyY - 10, (enemy.health / getEnemyHealth(currentRound)) * (enemySize / 2), 5);
                 }
             }
         }
-    });
-
-    // Render health packs
-    healthPacksArray.forEach(pack => {
-        pack.render(ctx);
-    });
-
-    // Render ammo packs
-    ammoPacksArray.forEach(pack => {
-        pack.render(ctx);
     });
 
     // Render bullet trace
@@ -739,16 +745,15 @@ function shoot() {
                         enemy.hitTime = performance.now();
 
                         if (enemy.health <= 0) {
+                            totalKills++;
+                            score += Math.floor(100 * player.damageMultiplier);
                             enemies.splice(enemies.indexOf(enemy), 1);
                             playKillSound();
                             player.damageMultiplier += 0.1;
-                            totalKills++;
-                            score += Math.floor(100 * player.damageMultiplier);
                             updateHUD();
                         } else {
                             playHitSound();
                         }
-                        shotsHit++;
                         break;
                     }
                 }
@@ -759,7 +764,9 @@ function shoot() {
             }
         }
 
-        if (!hit) {
+        if (hit) {
+            shotsHit++;
+        } else {
             // Missed shot logic
             player.damageMultiplier = 1.0;
             fireRate = weapons[currentWeapon].fireRate;
@@ -806,20 +813,21 @@ function shoot() {
                     if (currentWeapon === 'rifle') {
                         enemy.hitThisShot = true;
                     } else {
+                        // For pistol, break after first hit
                         break;
                     }
 
                     if (enemy.health <= 0) {
+                        totalKills++;
+                        score += Math.floor(100 * player.damageMultiplier);
                         enemies.splice(enemies.indexOf(enemy), 1);
                         playKillSound();
                         player.damageMultiplier += 0.1;
-                        totalKills++;
-                        score += Math.floor(100 * player.damageMultiplier);
                         updateHUD();
                     } else {
                         playHitSound();
                     }
-                    shotsHit++;
+                    break;
                 }
             }
 
@@ -843,7 +851,9 @@ function shoot() {
             };
         }
 
-        if (!hit) {
+        if (hit) {
+            shotsHit++;
+        } else {
             // Missed shot logic
             player.damageMultiplier = 1.0;
             fireRate = weapons[currentWeapon].fireRate;
@@ -853,21 +863,13 @@ function shoot() {
 
         // Accelerate fire rate if hit with pistol
         if (currentWeapon === 'pistol' && hit) {
+            player.damageMultiplier += 0.1;
             fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
+            updateHUD();
         } else if (currentWeapon === 'pistol' && !hit) {
             fireRate = defaultFireRate; // Reset fire rate on miss
         }
     }
-}
-
-function reloadWeapon() {
-    if (weapons[currentWeapon].ammo === Infinity) return;
-
-    weapons[currentWeapon].ammo = weapons[currentWeapon].maxAmmo;
-    updateHUD();
-
-    reloadSound.currentTime = 0;
-    reloadSound.play();
 }
 
 /* === Pause Menu Handling === */
@@ -902,6 +904,7 @@ function quitGame() {
     pauseMenu.style.display = 'none';
     canvas.style.display = 'none';
     crosshair.style.display = 'none';
+    hud.style.display = 'none'; // Hide the HUD
     startScreen.style.display = 'flex';
     backgroundMusic.pause();
     backgroundMusic.currentTime = 0; // Reset background music
@@ -927,6 +930,7 @@ quitButton.addEventListener('click', quitGame);
 function endGame() {
     isPaused = false;
     crosshair.style.display = 'none';
+    hud.style.display = 'none'; // Hide the HUD
     backgroundMusic.pause();
     backgroundMusic.currentTime = 0;
     document.removeEventListener('mousemove', mouseMoveHandler);
@@ -1040,12 +1044,18 @@ function drawMiniMap() {
 
     // Draw health packs
     healthPacksArray.forEach(pack => {
-        pack.render(miniMapCtx);
+        if (!pack.collected) {
+            miniMapCtx.fillStyle = 'green';
+            miniMapCtx.fillRect(pack.x * scale - 5, pack.y * scale - 5, 10, 10);
+        }
     });
 
     // Draw ammo packs
     ammoPacksArray.forEach(pack => {
-        pack.render(miniMapCtx);
+        if (!pack.collected) {
+            miniMapCtx.fillStyle = 'blue';
+            miniMapCtx.fillRect(pack.x * scale - 5, pack.y * scale - 5, 10, 10);
+        }
     });
 
     // Draw enemies
@@ -1112,11 +1122,11 @@ window.onload = () => {
 
 /* === Additional Functions === */
 
-function isPositionFree(x, y, currentEnemy) {
-    for (let enemy of enemies) {
-        if (enemy !== currentEnemy) {
-            let dx = enemy.x - x;
-            let dy = enemy.y - y;
+function isPositionFree(x, y, currentEntity) {
+    for (let entity of entities) {
+        if (entity !== currentEntity) {
+            let dx = entity.x - x;
+            let dy = entity.y - y;
             if (Math.hypot(dx, dy) < 0.4) {
                 return false;
             }
@@ -1263,3 +1273,4 @@ function getRandomSpawnPositionForSupply() {
 /* === Utility Functions === */
 
 // Existing utility functions like getMap, etc.
+
