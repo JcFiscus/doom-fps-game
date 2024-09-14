@@ -1,4 +1,5 @@
 /* === Global Variables and Constants === */
+let countdownInterval = null; // Added to track countdown timers
 
 // Canvas and Context
 const canvas = document.getElementById('gameCanvas');
@@ -81,6 +82,7 @@ let lastShot = null;
 
 /* === Game Classes === */
 
+/* === Player Class Enhancements === */
 class Player {
     constructor() {
         this.reset();
@@ -98,10 +100,7 @@ class Player {
             this.y = newY; // Move vertically
         }
 
-        // Prevent moving too fast
-        if (Math.abs(moveX) > 0.2 || Math.abs(moveY) > 0.2) {
-            this.speed = 0.1; // Reset speed to prevent issues
-        }
+        // Removed speed reset logic to maintain consistent speed
     }
 
     takeDamage(amount) {
@@ -127,7 +126,7 @@ class Player {
         this.y = 3;
         this.dir = 0;
         this.health = 100;
-        this.speed = 0.1;
+        this.speed = 0.15; // Increased speed for moderate movement
         this.damageMultiplier = 1.0;
         this.currentWeapon = 'pistol';
     }
@@ -173,6 +172,7 @@ class Enemy {
     }
 }
 
+/* === Collectible Class Enhancements === */
 class Collectible {
     constructor(x, y) {
         this.x = x + 0.5;
@@ -195,7 +195,8 @@ class Collectible {
     render(ctx) {
         if (!this.collected) {
             ctx.fillStyle = this.getColor();
-            ctx.fillRect(this.x * 10 - 5, this.y * 10 - 5, 10, 10); // Render collectible
+            // Reduced size from 10x10 to 5x5
+            ctx.fillRect(this.x * 10 - 2.5, this.y * 10 - 2.5, 5, 5); // Render collectible
         }
     }
 
@@ -223,6 +224,8 @@ class HealthPack extends Collectible {
     }
 }
 
+/* === Reload Sound Trigger on Ammo Pickup === */
+
 class AmmoPack extends Collectible {
     constructor(x, y, ammoAmount) {
         super(x, y);
@@ -234,7 +237,15 @@ class AmmoPack extends Collectible {
     }
 
     onCollect(player) {
-        weapons[currentWeapon].ammo = Math.min(weapons[currentWeapon].maxAmmo, weapons[currentWeapon].ammo + this.ammoAmount);
+        let weapon = weapons[currentWeapon];
+        if (weapon.ammo !== Infinity) {
+            let ammoBefore = weapon.ammo;
+            weapon.ammo = Math.min(weapon.maxAmmo, weapon.ammo + this.ammoAmount);
+            if (weapon.ammo > ammoBefore) {
+                playReloadSound(); // Trigger reload sound upon ammo pickup
+            }
+            updateHUD();
+        }
     }
 }
 
@@ -416,10 +427,22 @@ document.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
+/* === Event Listeners Enhancements === */
+
 // Event listener for Settings button in Pause Menu
 settingsButtonPause.addEventListener('click', () => {
     settingsContainer.style.display = 'block';
     pauseMenu.style.display = 'none'; // Hide pause menu when settings are open
+});
+
+// Updated Back from Settings to handle both Pause and Main Menu contexts
+backFromSettingsButton.addEventListener('click', () => {
+    settingsContainer.style.display = 'none';
+    if (isPaused) {
+        pauseMenu.style.display = 'flex'; // Show pause menu if the game is paused
+    } else {
+        startScreen.style.display = 'flex'; // Show main menu if the game isn't started
+    }
 });
 
 // Mouse Move Handler
@@ -765,8 +788,9 @@ function shoot() {
     }
 }
 
+// Updated fireRay function to handle multiple hits per shotgun pellet
 function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
-    let hit = false;
+    let totalHits = 0; // Track total hits for accurate shotsHit count
 
     for (let i = 0; i < numRays; i++) {
         let rayDir;
@@ -798,7 +822,7 @@ function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
                 let dist = Math.hypot(dx, dy);
                 if (dist < 0.3 && !enemiesHitThisShot.has(enemy)) {
                     enemy.health -= damage;
-                    hit = true;
+                    totalHits++;
                     shotHitX = testX;
                     shotHitY = testY;
 
@@ -824,7 +848,7 @@ function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
                 }
             }
 
-            if (!penetrate && hit) {
+            if (!penetrate && totalHits > 0) {
                 break;
             }
         }
@@ -839,8 +863,8 @@ function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
         }
     }
 
-    if (hit) {
-        shotsHit++;
+    if (totalHits > 0) {
+        shotsHit += totalHits;
     } else {
         // Missed shot logic
         player.damageMultiplier = 1.0;
@@ -850,11 +874,11 @@ function fireRay(numRays, spreadAngle, maxDistance, damage, penetrate = false) {
     }
 
     // Weapon-specific logic
-    if (currentWeapon === 'pistol' && hit) {
+    if (currentWeapon === 'pistol' && totalHits > 0) {
         player.damageMultiplier += 0.1;
         fireRate = Math.max(minFireRate, fireRate - fireRateDecrease);
         updateHUD();
-    } else if (currentWeapon === 'pistol' && !hit) {
+    } else if (currentWeapon === 'pistol' && totalHits === 0) {
         fireRate = defaultFireRate; // Reset fire rate on miss
     }
 }
@@ -885,6 +909,8 @@ function togglePause() {
 
 resumeButton.addEventListener('click', togglePause);
 
+/* === Quit Game Enhancements === */
+
 function quitGame() {    
     isPaused = false;
     gameOver = false;
@@ -896,6 +922,12 @@ function quitGame() {
     backgroundMusic.pause();
     backgroundMusic.currentTime = 0; // Reset background music
     document.exitPointerLock();
+
+    // Clear any active countdown intervals
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
 
     // Reset game state
     player.reset();
@@ -920,7 +952,7 @@ function quitGame() {
 
 quitButton.addEventListener('click', quitGame);
 
-/* === Game Over Handling === */
+/* === Game Over Handling Enhancements === */
 
 function endGame() {
     gameOver = true;
@@ -950,12 +982,20 @@ function endGame() {
                         <button id="saveScoreButton">Save Score</button>`;
     }
 
+    // Add Quit to Main Menu button
+    scoreDisplay += `<button id="quitToMenuButton">Quit to Main Menu</button>`;
+
     roundMessage.innerHTML = scoreDisplay;
     countdownElement.style.display = 'none';
     roundInfo.style.display = 'flex';
     roundInfo.style.pointerEvents = 'auto';
     restartButton.style.display = 'block';
     inCountdown = false;
+
+    if (countdownInterval) { // Clear any existing countdown intervals
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
 
     if (qualifies) {
         const saveScoreButton = document.getElementById('saveScoreButton');
@@ -973,6 +1013,12 @@ function endGame() {
             });
         }
     }
+
+    // Add event listener for Quit to Main Menu button
+    const quitToMenuButton = document.getElementById('quitToMenuButton');
+    if (quitToMenuButton) {
+        quitToMenuButton.addEventListener('click', quitGame);
+    }
 }
 
 restartButton.addEventListener('click', function () {
@@ -980,34 +1026,93 @@ restartButton.addEventListener('click', function () {
     startGame();
 });
 
+/* === Audio Fallback Logic === */
+
+// Function to play a sound with fallback
+function playSound(audioElement, defaultSoundFunction) {
+    if (audioElement) {
+        audioElement.play().catch(() => {
+            defaultSoundFunction();
+        });
+    } else {
+        defaultSoundFunction();
+    }
+}
+
+// Default sound function using Web Audio API to generate a beep
+function playDefaultSound(frequency = 440, duration = 0.1) { // frequency in Hz, duration in seconds
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = context.createOscillator();
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(frequency, context.currentTime); // A4 by default
+    oscillator.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + duration);
+}
+
 /* === Sound Effects === */
 
+// Specific default sounds for different sound effects
+function playDefaultReloadSound() {
+    playDefaultSound(220, 0.2); // Lower frequency for reload
+}
+
+function playDefaultShootSound() {
+    playDefaultSound(660, 0.05); // Higher frequency for shoot
+}
+
+function playDefaultHitSound() {
+    playDefaultSound(880, 0.05); // Even higher for hit
+}
+
+function playDefaultKillSound() {
+    playDefaultSound(330, 0.3); // Mid frequency for kill
+}
+
+function playDefaultNoAmmoSound() {
+    playDefaultSound(110, 0.2); // Lower frequency for no ammo
+}
+
+function playDefaultCollectSound() {
+    playDefaultSound(550, 0.1); // Mid-high frequency for collect
+}
+
+function playDefaultDamageSound() {
+    playDefaultSound(770, 0.1); // Another frequency for damage
+}
+
+// Updated sound playing functions with fallback
 function playHitSound() {
-    hitSound.currentTime = 0;
-    hitSound.play();
+    playSound(hitSound, playDefaultHitSound);
 }
 
 function playKillSound() {
-    killSound.currentTime = 0;
-    killSound.play();
+    playSound(killSound, playDefaultKillSound);
 }
 
 function playMissSound() {
-    // Optional: Implement miss sound
+    // Play a default miss sound
+    playDefaultSound(500, 0.05);
 }
 
 function playNoAmmoSound() {
-    noAmmoSound.currentTime = 0;
-    noAmmoSound.play();
+    playSound(noAmmoSound, playDefaultNoAmmoSound);
 }
 
 function playCollectSound() {
-    collectSound.currentTime = 0;
-    collectSound.play();
+    playSound(collectSound, playDefaultCollectSound);
+}
+
+function playReloadSound() {
+    playSound(reloadSound, playDefaultReloadSound);
+}
+
+function playShootSound() {
+    playSound(shootSound, playDefaultShootSound);
 }
 
 function playDamageSound() {
-    // Optional: Implement damage sound
+    playSound(null, playDefaultDamageSound); // Assuming no specific damage sound
 }
 
 /* === HUD and UI Updates === */
@@ -1140,8 +1245,9 @@ window.onload = () => {
 
 /* === Additional Functions === */
 
+/* === Collision Detection Enhancement === */
 function isPositionFree(x, y, currentEntity) {
-    const entities = [...enemies, ...healthPacksArray, ...ammoPacksArray];
+    const entities = enemies; // Exclude collectibles from blocking
     for (let entity of entities) {
         if (entity !== currentEntity) {
             let dx = entity.x - x;
@@ -1204,6 +1310,8 @@ function getRandomSpawnPosition() {
     return null;
 }
 
+/* === Show Round Info Enhancements === */
+
 function showRoundInfo(message, isGameOver) {
     roundMessage.innerHTML = `<h2>${message}</h2>`;
     roundInfo.style.display = 'flex';
@@ -1221,13 +1329,20 @@ function showRoundInfo(message, isGameOver) {
 
         let countdown = 3;
         countdownElement.textContent = `Next round starts in ${countdown}`;
-        let countdownInterval = setInterval(() => {
+        
+        // Clear any existing countdown intervals before starting a new one
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+        }
+
+        countdownInterval = setInterval(() => {
             countdown--;
 
             if (countdown > 0) {
                 countdownElement.textContent = `Next round starts in ${countdown}`;
             } else {
                 clearInterval(countdownInterval);
+                countdownInterval = null;
                 roundInfo.style.display = 'none';
                 inCountdown = false; // Countdown over, enemies spawn
 
