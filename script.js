@@ -370,7 +370,11 @@ backFromSettingsButton.addEventListener('click', () => {
 
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
-    playerRotationSpeed = parseFloat(mouseSensitivityInput.value);
+    // Set default mouse sensitivity
+    mouseSensitivityInput.value = '1'; // You can adjust this default value as needed
+    mouseSensitivityValue.textContent = '1';
+    // Initialize player rotation speed with a default value if necessary
+    let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 });
 
 document.addEventListener('keydown', (e) => {
@@ -402,11 +406,12 @@ document.addEventListener('keyup', (e) => {
 
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
-        player.dir += e.movementX * playerRotationSpeed * 0.002;
+        player.dir += e.movementX * playerRotationSpeed * 0.01; // Increased from 0.002 to 0.01
         if (player.dir < 0) player.dir += 2 * Math.PI;
         if (player.dir > 2 * Math.PI) player.dir -= 2 * Math.PI;
     }
 }
+
 
 document.addEventListener('mousedown', (e) => {
     if (document.pointerLockElement === canvas && e.button === 0) {
