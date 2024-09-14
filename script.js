@@ -84,8 +84,8 @@ const fov = Math.PI / 3; // 60 degrees field of view
 let lastShot = null;
 
 // Arrays for Supplies
-let ammoPacks = [];
-let healthPacks = [];
+let ammoPacksArray = [];
+let healthPacksArray = [];
 
 /* === Game Classes === */
 
@@ -241,7 +241,7 @@ class AmmoPack {
 const player = new Player();
 const keys = {};
 let enemies = [];
-let ammoPacksArray = []; // Renamed to avoid conflict
+let ammoPacksArray = [];
 let healthPacksArray = [];
 
 let gameOver = false;
@@ -1256,11 +1256,10 @@ function getRandomSpawnPositionForSupply() {
     return null;
 }
 
-/* === Pause and Resume Music === */
+/* === Pointer Lock Handling === */
 
-// Already handled in togglePause()
+// Already handled in event listeners
 
 /* === Utility Functions === */
 
 // Existing utility functions like getMap, etc.
-
