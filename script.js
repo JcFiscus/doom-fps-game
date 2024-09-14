@@ -49,28 +49,29 @@ let playerRotationSpeed = parseFloat(mouseSensitivityInput.value); // Default va
 
 // Weapon data
 const weapons = {
-pistol: {
-name: 'Pistol',
-damage: 25,
-fireRate: 500, // in ms
-ammo: Infinity,
-maxAmmo: Infinity
-},
-shotgun: {
-name: 'Shotgun',
-damage: 50,
-fireRate: 1000,
-ammo: 20,
-maxAmmo: 20
-},
-rifle: {
-name: 'Rifle',
-damage: 35,
-fireRate: 300,
-ammo: 30,
-maxAmmo: 30
-}
+    pistol: {
+        name: 'Pistol',
+        damage: 25,
+        fireRate: 500, // in ms
+        ammo: Infinity,
+        maxAmmo: Infinity
+    },
+    shotgun: {
+        name: 'Shotgun',
+        damage: 10, // Reduced damage per pellet
+        fireRate: 1000,
+        ammo: 20,
+        maxAmmo: 20
+    },
+    rifle: {
+        name: 'Rifle',
+        damage: 35,
+        fireRate: 300,
+        ammo: 30,
+        maxAmmo: 30
+    }
 };
+
 
 let currentWeapon = 'pistol';
 
