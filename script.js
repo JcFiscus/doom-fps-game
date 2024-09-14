@@ -1114,9 +1114,32 @@ function displayHighScoresOnStart() {
     displayHighScores();
 }
 
-window.onload = () => {
-    displayHighScoresOnStart();
+// Make sure the DOM is fully loaded before attaching event listeners
+window.onload = function() {
+    // Start game button listener
+    startButton.addEventListener('click', startGame);
+    
+    // Quit game button listener
+    quitButton.addEventListener('click', quitGame);
+    
+    // Resume game button listener (if pausing is enabled)
+    resumeButton.addEventListener('click', togglePause);
+    
+    // Other button listeners as needed
+    viewHighScoresButton.addEventListener('click', function() {
+        displayHighScores();
+        highScoresContainer.style.display = 'block';
+    });
+    
+    backFromHighScoresButton.addEventListener('click', function() {
+        highScoresContainer.style.display = 'none';
+    });
+
+    backFromSettingsButton.addEventListener('click', function() {
+        settingsContainer.style.display = 'none';
+    });
 };
+
 
 /* === Additional Functions === */
 
