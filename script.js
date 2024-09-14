@@ -374,7 +374,7 @@ backFromSettingsButton.addEventListener('click', () => {
 });
 
 // Initialize mouse sensitivity input with default value
-mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityInput.value = '.25'; // Adjust as needed
 mouseSensitivityValue.textContent = mouseSensitivityInput.value;
 
 // Initialize player rotation speed
