@@ -48,11 +48,11 @@ const noAmmoSound = document.getElementById('noAmmoSound');
 const collectSound = document.getElementById('collectSound');
 
 // Set default mouse sensitivity
-mouseSensitivityInput.value = '1'; // Adjust as needed
+mouseSensitivityInput.value = '10'; // Adjust as needed
 mouseSensitivityValue.textContent = '1';
 
 // Player Rotation Speed
-let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 10;
 
 // Weapons Data
 const weapons = {
