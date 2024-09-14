@@ -1123,6 +1123,7 @@ window.onload = () => {
 /* === Additional Functions === */
 
 function isPositionFree(x, y, currentEntity) {
+    const entities = [...enemies, ...healthPacksArray, ...ammoPacksArray];
     for (let entity of entities) {
         if (entity !== currentEntity) {
             let dx = entity.x - x;
@@ -1134,6 +1135,7 @@ function isPositionFree(x, y, currentEntity) {
     }
     return true;
 }
+
 
 function initEnemies() {
     enemies = [];
