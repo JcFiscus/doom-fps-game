@@ -381,7 +381,7 @@ mouseSensitivityInput.value = '1'; // Adjust as needed
 mouseSensitivityValue.textContent = mouseSensitivityInput.value;
 
 // Initialize player rotation speed
-let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+// let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
 
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
