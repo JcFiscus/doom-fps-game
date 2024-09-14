@@ -21,6 +21,7 @@ const highScoresContainer = document.getElementById('highScoresContainer');
 const backFromHighScoresButton = document.getElementById('backFromHighScores');
 const settingsContainer = document.getElementById('settingsContainer');
 const backFromSettingsButton = document.getElementById('backFromSettings');
+const settingsButtonPause = document.getElementById('settingsButtonPause');
 const mouseSensitivityInput = document.getElementById('mouseSensitivity');
 const mouseSensitivityValue = document.getElementById('mouseSensitivityValue');
 const roundInfo = document.getElementById('roundInfo');
@@ -371,6 +372,11 @@ settingsButton.addEventListener('click', () => {
 });
 backFromSettingsButton.addEventListener('click', () => {
     settingsContainer.style.display = 'none';
+    if (isPaused) {
+        pauseMenu.style.display = 'flex'; // Show pause menu if the game is paused
+    } else {
+        startScreen.style.display = 'flex'; // Show main menu if the game isn't started
+    }
 });
 
 // Initialize mouse sensitivity input with default value
@@ -407,13 +413,10 @@ document.addEventListener('keyup', (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
-// Pointer Lock Change Handling
-document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement === canvas) {
-        document.addEventListener('mousemove', mouseMoveHandler);
-    } else {
-        document.removeEventListener('mousemove', mouseMoveHandler);
-    }
+// Event listener for Settings button in Pause Menu
+settingsButtonPause.addEventListener('click', () => {
+    settingsContainer.style.display = 'block';
+    pauseMenu.style.display = 'none'; // Hide pause menu when settings are open
 });
 
 // Mouse Move Handler
