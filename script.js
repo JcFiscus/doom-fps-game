@@ -83,6 +83,9 @@ const fov = Math.PI / 3; // 60 degrees field of view
 // Variable to store last shot data for visual effects
 let lastShot = null;
 
+let ammoPacksArray = [];
+let healthPacksArray = [];
+
 /* === Game Classes === */
 
 class Player {
@@ -242,8 +245,6 @@ class AmmoPack {
 const player = new Player();
 const keys = {};
 let enemies = [];
-let ammoPacksArray = [];
-let healthPacksArray = [];
 
 let gameOver = false;
 let currentRound = 1;
