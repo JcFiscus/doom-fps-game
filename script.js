@@ -834,7 +834,33 @@ restartButton.addEventListener('click', function () {
 
 /* === Sound Effects === */
 
-// ... [No changes in sound effects]
+function playHitSound() {
+    hitSound.currentTime = 0;
+    hitSound.play();
+}
+
+function playKillSound() {
+    killSound.currentTime = 0;
+    killSound.play();
+}
+
+function playMissSound() {
+    // Optional: Implement miss sound
+}
+
+function playNoAmmoSound() {
+    noAmmoSound.currentTime = 0;
+    noAmmoSound.play();
+}
+
+function playCollectSound() {
+    collectSound.currentTime = 0;
+    collectSound.play();
+}
+
+function playDamageSound() {
+    // Optional: Implement damage sound
+}
 
 /* === HUD and UI Updates === */
 
