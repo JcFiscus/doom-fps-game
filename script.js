@@ -47,13 +47,6 @@ const reloadSound = document.getElementById('reloadSound');
 const noAmmoSound = document.getElementById('noAmmoSound');
 const collectSound = document.getElementById('collectSound');
 
-// Set default mouse sensitivity
-mouseSensitivityInput.value = '1'; // Adjust as needed
-mouseSensitivityValue.textContent = '1';
-
-// Player Rotation Speed
-let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
-
 // Weapons Data
 const weapons = {
     pistol: {
@@ -262,6 +255,9 @@ let isFiring = false;
 let fireRate = weapons[currentWeapon].fireRate;
 let fireTimeout;
 let lastFrameTime = null;
+let playerRotationSpeed;
+let mouseSensitivityInput;
+let mouseSensitivityValue;
 
 /* === Map Configuration === */
 
@@ -380,9 +376,6 @@ backFromSettingsButton.addEventListener('click', () => {
 mouseSensitivityInput.value = '1'; // Adjust as needed
 mouseSensitivityValue.textContent = mouseSensitivityInput.value;
 
-// Initialize player rotation speed
-// let playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
-
 mouseSensitivityInput.addEventListener('input', () => {
     mouseSensitivityValue.textContent = mouseSensitivityInput.value;
     playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
@@ -428,7 +421,7 @@ document.addEventListener('pointerlockchange', () => {
 function mouseMoveHandler(e) {
     if (document.pointerLockElement === canvas) {
         // Debug: Log movementX for verification
-        // console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
+        console.log('movementX:', e.movementX, 'playerRotationSpeed:', playerRotationSpeed);
 
         // Adjust the scaling factor as needed for desired sensitivity
         const sensitivityFactor = 0.005; // Increased from 0.002 to 0.005
@@ -1138,8 +1131,27 @@ function displayHighScoresOnStart() {
     displayHighScores();
 }
 
+
+
 window.onload = () => {
     displayHighScoresOnStart();
+    // Now that the DOM is fully loaded, you can safely access DOM elements
+    const mouseSensitivityInput = document.getElementById('mouseSensitivity');
+    const mouseSensitivityValue = document.getElementById('mouseSensitivityValue');
+
+    // Set default mouse sensitivity
+    mouseSensitivityInput.value = '1'; // Adjust as needed
+    mouseSensitivityValue.textContent = '1';
+
+    // Initialize player rotation speed
+    playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+    
+    // Add the event listener for mouse sensitivity input
+    mouseSensitivityInput.addEventListener('input', () => {
+        mouseSensitivityValue.textContent = mouseSensitivityInput.value;
+        playerRotationSpeed = parseFloat(mouseSensitivityInput.value) || 1;
+        console.log('mouseSensitivityInput:', mouseSensitivityInput);
+    });
 };
 
 /* === Additional Functions === */
